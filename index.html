@@ -44,6 +44,9 @@ input[type=text]{width:100%;padding:14px;border:1.5px solid var(--line);border-r
 .method{padding:10px 0}.method div{display:flex;justify-content:space-between}
 .danger{margin-top:28px;width:100%;padding:14px;border:1.5px solid var(--danger);border-radius:10px;background:none;color:var(--danger);font-weight:600}
 .danger[data-armed]{background:var(--danger);color:var(--bg)}
+.rb{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;padding:12px 0;background:none;border:0;border-bottom:1px solid var(--line);text-align:left}.rb:last-child{border-bottom:0}.rb small,.method small{display:block;color:var(--muted)}
+.tag{font-size:.75rem;padding:2px 8px;border-radius:99px;background:var(--accent);color:var(--on-accent);margin-left:8px;font-weight:600}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}.stats .card{padding:12px}.stats b{display:block;font-size:1.2rem}.up{color:var(--ok)}.down{color:var(--danger)}
 </style>
 </head>
 <body>
@@ -150,7 +153,7 @@ function offlineNote(){
 
 function home(){
   app.innerHTML='<h1>Painel do restaurante</h1><p class="muted">Escolha uma área para começar.</p>'+
-  '<button class="big" data-go="caixa">Controle de caixa</button>'+offlineNote();
+  '<button class="big" data-go="caixa">Controle de caixa</button><button class="big alt" data-go="historico">Histórico de noites</button><button class="big alt" data-go="analise">Análise semanal</button>'+offlineNote();
 }
 function caixa(){
   chosen=null;
@@ -189,13 +192,104 @@ function pagamentos(){
   '<div class="card" style="margin-top:18px"><p class="muted">Total recebido</p><div class="total">'+brl(t)+'</div></div>'+
   '<h2>Total por forma de pagamento</h2><div class="card">'+rows+'</div>'+
   '<h2>Todos os pagamentos</h2><div class="card">'+itemsHtml()+'</div>'+
-  (canWrite&&dbState==='ok'?'<button class="danger" id="reset" data-label="Começar nova noite">Começar nova noite</button><p class="muted" style="margin-top:8px">Os pagamentos anteriores ficam guardados, mas saem dos totais.</p>':'');
+  (canWrite&&dbState==='ok'?'<button class="danger" id="reset" data-label="Começar nova noite">Começar nova noite</button><p class="muted" style="margin-top:8px">A noite é arquivada no Histórico e os totais recomeçam do zero.</p>':'');
 }
-function route(){
-  var h=location.hash.replace('#/','');view=(h==='caixa'||h==='pagamentos')?h:'';
-  if(view==='caixa')caixa();else if(view==='pagamentos')pagamentos();else home();
-  window.scrollTo(0,0);
+var MK=['dinheiro','pix','debito','credito'],DOW=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'],noites=[],loadedN=false,unsubDet=null,detId='',detPay=[],detOk=false,viewArg='';
+function fdate(t){return new Date(t).toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'})}
+function fd2(t){return new Date(t).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}
+function pct(x){return (x*100).toFixed(1).replace('.',',')+'%'}
+function wk(ts){var d=new Date(ts);d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d.getTime()}
+function mean(a){return a.length?a.reduce(function(x,y){return x+y},0)/a.length:0}
+function nm(n){return MK.map(function(k){return n[k]||0})}
+function backBtn(go,l){return '<div class="top"><button class="link" data-go="'+go+'">'+l+'</button></div>'}
+function plural(n,s){return n+' '+s+(n===1?'':'s')}
+function allNights(){
+  var a=noites.slice();
+  if(payments.length&&!a.some(function(n){return n.id===nightId})){
+    var x={id:nightId,since:(night&&night.since)||payments[payments.length-1].ts,total:sum(payments),count:payments.length,live:true};
+    METHODS.forEach(function(m,i){x[MK[i]]=sum(payments.filter(function(e){return e.method===m}))});a.unshift(x);
+  }
+  return a;
 }
+function methodRows(m,total){return METHODS.map(function(n,i){var p=total?Math.round(m[i]/total*100):0;
+  return '<div class="method"><div><span>'+n+' · '+p+'%</span><b>'+brl(m[i])+'</b></div><div class="bar"><i style="width:'+p+'%"></i></div></div>'}).join('')}
+function roItems(arr,ok){
+  if(!ok)return '<p class="muted">Carregando pagamentos…</p>';
+  if(!arr.length)return '<p class="muted">Nenhum pagamento nesta noite.</p>';
+  return arr.map(function(e){return '<div class="item"><div><b>Mesa '+esc(e.table)+'</b><small>'+esc(e.method)+' · '+hm(e.ts)+'</small></div><b>'+brl(e.value)+'</b></div>'}).join('');
+}
+function historico(){
+  var ns=allNights(),M={};
+  ns.forEach(function(n){var d=new Date(n.since),k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),o=M[k]||(M[k]={t:0,n:0});o.t+=n.total;o.n++});
+  var ms=Object.keys(M).sort().reverse().map(function(k){var p=k.split('-');
+    return '<div class="item"><div><b>'+p[1]+'/'+p[0]+'</b><small>'+plural(M[k].n,'noite')+'</small></div><b>'+brl(M[k].t)+'</b></div>'}).join('');
+  var rows=ns.map(function(n){return '<button class="rb" data-go="'+(n.live?'pagamentos':'noite/'+esc(n.id))+'"><span><b>'+fdate(n.since)+'</b>'+(n.live?'<span class="tag">em andamento</span>':'')+'<small>'+plural(n.count,'pagamento')+'</small></span><b>'+brl(n.total)+'</b></button>'}).join('');
+  app.innerHTML=backBtn('','Voltar')+'<h1>Histórico de noites</h1><p class="muted">Toque em uma noite para ver os pagamentos.</p>'+offlineNote()+
+  (ns.length?'<h2>Noites</h2><div class="card">'+rows+'</div><h2>Por mês</h2><div class="card">'+ms+'</div>'
+  :'<div class="note">'+(loadedN?'Nenhuma noite arquivada ainda. Use Começar nova noite ao fechar o caixa.':'Carregando…')+'</div>');
+}
+function noiteView(){
+  var n=allNights().filter(function(x){return x.id===viewArg})[0];
+  if(db&&detId!==viewArg){
+    if(unsubDet)unsubDet();
+    var id=detId=viewArg;detPay=[];detOk=false;
+    unsubDet=db.collection('pagamentos').where('night','==',id).onSnapshot(function(s){
+      if(detId!==id)return;
+      detPay=s.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,method:x.method,value:Number(x.value)||0,ts:x.ts||0}}).sort(function(a,b){return b.ts-a.ts});
+      detOk=true;if(view==='noite')render();
+    },function(){detOk=true});
+  }
+  var body=n?'<p class="muted">'+plural(n.count,'pagamento')+'</p><div class="card" style="margin-top:18px"><p class="muted">Total recebido</p><div class="total">'+brl(n.total)+'</div></div>'+
+    '<h2>Total por forma de pagamento</h2><div class="card">'+methodRows(nm(n),n.total)+'</div><h2>Pagamentos</h2><div class="card">'+roItems(detPay,detOk)+'</div>'
+    :'<div class="note">'+(loadedN?'Noite não encontrada.':'Carregando…')+'</div>';
+  app.innerHTML=backBtn('historico','Voltar ao histórico')+'<h1>'+(n?fdate(n.since):'Noite')+'</h1>'+body;
+}
+function analise(){
+  var ns=allNights(),cur=wk(Date.now()),W={},DW=[0,0,0,0,0,0,0],DN=[0,0,0,0,0,0,0],MT=[0,0,0,0];
+  ns.forEach(function(n){
+    var k=wk(n.since),w=W[k]||(W[k]={start:k,total:0,count:0,nights:0});
+    w.total+=n.total;w.count+=n.count;w.nights++;
+    nm(n).forEach(function(v,i){MT[i]+=v});
+    var d=new Date(n.since).getDay();DW[d]+=n.total;DN[d]++;
+  });
+  var weeks=Object.keys(W).map(function(k){return W[k]}).sort(function(a,b){return a.start-b.start});
+  var cw=weeks.filter(function(w){return w.start<cur}),v=cw.map(function(w){return w.total}),nw=v.length,mu=mean(v);
+  var sd=nw>1?Math.sqrt(v.reduce(function(a,x){return a+(x-mu)*(x-mu)},0)/(nw-1)):0;
+  var so=v.slice().sort(function(a,b){return a-b}),med=nw?(nw%2?so[(nw-1)/2]:(so[nw/2-1]+so[nw/2])/2):0;
+  var slope=0;if(nw>=3){var xm=(nw-1)/2,nu=0,de=0;v.forEach(function(y,i){nu+=(i-xm)*(y-mu);de+=(i-xm)*(i-xm)});slope=nu/de}
+  var best=cw.slice().sort(function(a,b){return b.total-a.total})[0],worst=cw.slice().sort(function(a,b){return a.total-b.total})[0];
+  function st(l,val,cls){return '<div class="card"><p class="muted">'+l+'</p><b'+(cls?' class="'+cls+'"':'')+'>'+val+'</b></div>'}
+  var cards=nw?st('Média semanal',brl(mu))+st('Mediana semanal',brl(med))+
+    st('Melhor semana',brl(best.total)+'<small class="muted"> '+fd2(best.start)+'</small>')+st('Pior semana',brl(worst.total)+'<small class="muted"> '+fd2(worst.start)+'</small>')+
+    (nw>1?st('Desvio padrão',brl(sd))+st('Variação (CV)',mu?pct(sd/mu):'-'):'')+
+    (nw>=3?st('Tendência',(slope>=0?'+':'-')+brl(Math.abs(slope))+'/semana',slope>=0?'up':'down'):''):'';
+  var max=Math.max.apply(null,weeks.map(function(w){return w.total}).concat([1]));
+  var wrows=weeks.slice().reverse().map(function(w){
+    var i=weeks.indexOf(w),pv=weeks[i-1],chg=pv&&w.start<cur&&pv.total>0?(w.total-pv.total)/pv.total:null;
+    return '<div class="method"><div><span><b>'+fd2(w.start)+' a '+fd2(w.start+6*864e5)+'</b>'+(w.start===cur?'<span class="tag">em andamento</span>':'')+'</span><b>'+brl(w.total)+'</b></div>'+
+    '<div class="bar"><i style="width:'+Math.round(w.total/max*100)+'%"></i></div><small class="muted">'+plural(w.nights,'noite')+' · média '+brl(w.total/w.nights)+'/noite · ticket médio '+brl(w.count?w.total/w.count:0)+
+    (chg!==null?' · <span class="'+(chg>=0?'up':'down')+'">'+(chg>=0?'+':'')+pct(chg)+'</span> vs. anterior':'')+'</small></div>';
+  }).join('');
+  var av=[1,2,3,4,5,6,0].map(function(d){return {d:d,a:DN[d]?DW[d]/DN[d]:0,n:DN[d]}}),am=Math.max.apply(null,av.map(function(x){return x.a}).concat([1]));
+  var bestD=av.slice().sort(function(a,b){return b.a-a.a})[0];
+  var drows=av.map(function(x){return '<div class="method"><div><span>'+DOW[x.d]+(x.n?' · '+plural(x.n,'noite'):'')+'</span><b>'+brl(x.a)+'</b></div><div class="bar"><i style="width:'+Math.round(x.a/am*100)+'%"></i></div></div>'}).join('');
+  var tt=MT.reduce(function(a,b){return a+b},0);
+  app.innerHTML=backBtn('','Voltar')+'<h1>Análise semanal</h1><p class="muted">Semanas de segunda a domingo, pela data de início de cada noite.</p>'+offlineNote()+
+  (!ns.length?'<div class="note">'+(loadedN?'Ainda não há noites arquivadas. Use Começar nova noite ao fechar o caixa.':'Carregando…')+'</div>':
+  '<h2>Resumo das semanas completas</h2>'+(nw?'<div class="stats">'+cards+'</div><p class="muted" style="margin-top:8px">A semana em andamento fica fora destes cálculos.'+(nw<3?' A tendência aparece com 3 semanas completas.':'')+'</p>':'<div class="note">Os cálculos aparecem quando houver ao menos uma semana completa.</div>')+
+  '<h2>Total por semana</h2><div class="card">'+wrows+'</div>'+
+  '<h2>Média por dia da semana</h2><div class="card">'+drows+'</div>'+(bestD.a?'<p class="muted" style="margin-top:8px">Melhor dia em média: '+DOW[bestD.d]+'.</p>':'')+
+  '<h2>Formas de pagamento (todo o período)</h2><div class="card">'+methodRows(MT,tt)+'</div>');
+}
+function render(){
+  var p=location.hash.replace('#/','').split('/');
+  view=['caixa','pagamentos','historico','analise','noite'].indexOf(p[0])>-1?p[0]:'';
+  viewArg=decodeURIComponent(p[1]||'');
+  if(view!=='noite'&&unsubDet){unsubDet();unsubDet=null;detId=''}
+  if(view==='caixa')caixa();else if(view==='pagamentos')pagamentos();else if(view==='historico')historico();else if(view==='analise')analise();else if(view==='noite')noiteView();else home();
+}
+function route(){render();window.scrollTo(0,0)}
+
 
 function subscribePayments(id){
   if(unsubPay&&id===nightId)return;
@@ -204,7 +298,7 @@ function subscribePayments(id){
   unsubPay=db.collection('pagamentos').where('night','==',id).onSnapshot(function(snap){
     payments=snap.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,method:x.method,value:Number(x.value)||0,ts:x.ts||0}})
       .sort(function(a,b){return b.ts-a.ts});
-    loaded=true;if(view==='pagamentos')pagamentos();
+    loaded=true;if(view==='pagamentos')pagamentos();else if(view==='historico'||view==='analise')render();
   },function(){dbState='off';loaded=true;route()});
 }
 async function init(){
@@ -213,6 +307,7 @@ async function init(){
   if(!d){dbState='off';route();return}
   db=d;dbState='ok';
   try{var u=await claude.use('user');if(u){var c=await u.can('data.write');if(c===false)canWrite=false}}catch(e){}
+  db.collection('noites').onSnapshot(function(sn){noites=sn.docs.map(function(d){var x=d.data();x.id=d.id;return x}).sort(function(a,b){return b.since-a.since});loadedN=true;if(view==='historico'||view==='analise'||view==='noite')render()},function(){loadedN=true});
   db.doc('config/noite').onSnapshot(function(s){
     night=s.exists?s.data():null;
     subscribePayments(night&&night.id?night.id:'inicial');
@@ -231,7 +326,14 @@ document.addEventListener('click',async function(ev){
       setTimeout(function(){if(b.isConnected){b.removeAttribute('data-armed');b.textContent=b.dataset.label}},3500);return}
     b.disabled=true;
     try{
-      if(b.id==='reset')await db.doc('config/noite').set({id:'n'+Date.now(),since:Date.now()});
+      if(b.id==='reset'){
+        if(payments.length){
+          var a={id:nightId,since:(night&&night.since)||payments[payments.length-1].ts,end:Date.now(),total:sum(payments),count:payments.length};
+          METHODS.forEach(function(m,i){a[MK[i]]=sum(payments.filter(function(e){return e.method===m}))});
+          await db.doc('noites/'+nightId).set(a);
+        }
+        await db.doc('config/noite').set({id:'n'+Date.now(),since:Date.now()});
+      }
       else await db.doc('pagamentos/'+b.getAttribute('data-rm')).delete();
     }catch(e){b.disabled=false;b.removeAttribute('data-armed');b.textContent='Não foi possível. Tentar de novo';if(e&&(e.code==='invalid_argument'||e.code==='permission-denied')){canWrite=false}}
   }
