@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Controle de caixa</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap">
+<style>
+:root{--bg:#E9EEF2;--surface:#fff;--ink:#14232E;--muted:#5B6C78;--line:#CBD5DC;--accent:#0F766E;--on-accent:#fff;--danger:#B42318;--ok:#0F766E;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0E1A22;--surface:#16252F;--ink:#E6EEF2;--muted:#8FA3B0;--line:#2A3D49;--accent:#3DD6C0;--on-accent:#06231F;--danger:#FF8A7A;--ok:#3DD6C0}}
+:root[data-theme="dark"]{--bg:#0E1A22;--surface:#16252F;--ink:#E6EEF2;--muted:#8FA3B0;--line:#2A3D49;--accent:#3DD6C0;--on-accent:#06231F;--danger:#FF8A7A;--ok:#3DD6C0}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;font-size:17px;line-height:1.45}
+main{max-width:640px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:2.1rem;line-height:1.1;margin:0 0 6px;font-weight:800;letter-spacing:-.02em}
+h2{font-size:1.1rem;margin:28px 0 10px;font-weight:600}
+p{margin:0}.muted{color:var(--muted)}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}button:disabled{opacity:.55;cursor:default}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
+.link{background:none;border:0;padding:10px 0;color:var(--accent);font-weight:600}
+.big{display:block;width:100%;margin-top:32px;padding:26px 20px;border:0;border-radius:14px;background:var(--accent);color:var(--on-accent);font-size:1.5rem;font-weight:800;text-align:left}
+.big.alt{margin-top:22px;padding:18px 20px;font-size:1.2rem;background:var(--surface);color:var(--ink);border:1.5px solid var(--accent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.note{margin-top:14px;padding:12px 14px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface)}
+label{display:block;font-weight:600;margin:0 0 6px}
+input[type=text]{width:100%;padding:14px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);font-size:1.25rem}
+.row{display:grid;grid-template-columns:1fr 1.4fr;gap:12px;margin-bottom:16px}
+.chips{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px}
+.chip{padding:14px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);font-weight:600}
+.chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.submit{width:100%;padding:16px;border:0;border-radius:10px;background:var(--ink);color:var(--bg);font-weight:800;font-size:1.1rem}
+.msg{min-height:1.5em;margin-top:10px;font-weight:600}.msg.err{color:var(--danger)}.msg.ok{color:var(--ok)}
+.item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item b{font-size:1.1rem}.item small{display:block;color:var(--muted)}
+.rm{background:none;border:0;color:var(--muted);padding:8px 0 8px 8px;font-size:.9rem;text-decoration:underline}
+.rm[data-armed]{color:var(--danger);font-weight:600}
+.total{font-size:3rem;font-weight:800;letter-spacing:-.03em;line-height:1.05}
+.bar{height:8px;border-radius:4px;background:var(--line);margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--accent)}
+.method{padding:10px 0}.method div{display:flex;justify-content:space-between}
+.danger{margin-top:28px;width:100%;padding:14px;border:1.5px solid var(--danger);border-radius:10px;background:none;color:var(--danger);font-weight:600}
+.danger[data-armed]{background:var(--danger);color:var(--bg)}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+/* CONFIGURAÇÃO DO ARMAZENAMENTO
+   Deixe vazio para usar o modo local (dados salvos só no navegador do aparelho).
+   Para compartilhar entre aparelhos, preencha com os dados do seu projeto Firebase (Firestore). */
+var CAIXA_CONFIG={projectId:'',apiKey:''};
+
+(function(){
+var cfg=CAIXA_CONFIG,fs=!!(cfg.projectId&&cfg.apiKey);
+window.CAIXA_MODE=fs?'firestore':'local';
+var LS='caixa:db:',H={'Content-Type':'application/json'};
+var root='https://firestore.googleapis.com/v1/projects/'+cfg.projectId+'/databases/(default)/documents',K='?key='+cfg.apiKey;
+function enc(o){var f={};Object.keys(o).forEach(function(k){var v=o[k];f[k]=typeof v==='number'?(Number.isInteger(v)?{integerValue:String(v)}:{doubleValue:v}):{stringValue:String(v)}});return {fields:f}}
+function dec(f){var o={};Object.keys(f||{}).forEach(function(k){var v=f[k];o[k]=v.stringValue!==undefined?v.stringValue:Number(v.integerValue!==undefined?v.integerValue:v.doubleValue)});return o}
+function rd(c){try{return JSON.parse(localStorage.getItem(LS+c))||{}}catch(e){return {}}}
+function wr(c,o){localStorage.setItem(LS+c,JSON.stringify(o))}
+function bad(){throw {code:'unavailable'}}
+var B=fs?{
+  list:async function(c,f,v){
+    var q={from:[{collectionId:c}]};
+    if(f)q.where={fieldFilter:{field:{fieldPath:f},op:'EQUAL',value:{stringValue:String(v)}}};
+    var r=await fetch(root+':runQuery'+K,{method:'POST',headers:H,body:JSON.stringify({structuredQuery:q})});
+    if(!r.ok)bad();
+    return (await r.json()).filter(function(x){return x.document}).map(function(x){return {id:x.document.name.split('/').pop(),data:dec(x.document.fields)}});
+  },
+  get:async function(c,id){var r=await fetch(root+'/'+c+'/'+id+K);if(r.status===404)return null;if(!r.ok)bad();return dec((await r.json()).fields)},
+  set:async function(c,id,d){var r=await fetch(root+'/'+c+'/'+id+K,{method:'PATCH',headers:H,body:JSON.stringify(enc(d))});if(!r.ok)bad()},
+  del:async function(c,id){var r=await fetch(root+'/'+c+'/'+id+K,{method:'DELETE'});if(!r.ok)bad()}
+}:{
+  list:async function(c,f,v){var o=rd(c);return Object.keys(o).map(function(id){return {id:id,data:o[id]}}).filter(function(x){return !f||x.data[f]===v})},
+  get:async function(c,id){return rd(c)[id]||null},
+  set:async function(c,id,d){var o=rd(c);o[id]=d;wr(c,o)},
+  del:async function(c,id){var o=rd(c);delete o[id];wr(c,o)}
+};
+
+var subs=[];
+function run(s){
+  return s.fetch().then(function(res){s.ok=true;var k=JSON.stringify(res.key);if(k!==s.last){s.last=k;s.next(res.snap)}})
+    .catch(function(e){if(!s.ok&&s.err)s.err(e)});
+}
+function refresh(){subs.forEach(run)}
+setInterval(refresh,3000);
+function sub(fetcher,next,err){var s={fetch:fetcher,next:next,err:err,ok:false,last:null};subs.push(s);run(s);return function(){subs=subs.filter(function(x){return x!==s})}}
+async function after(p){await p;refresh()}
+
+function docRef(path){
+  var p=path.split('/'),c=p[0],id=p[1];
+  return {
+    set:function(d){return after(B.set(c,id,d))},
+    delete:function(){return after(B.del(c,id))},
+    onSnapshot:function(n,e){return sub(async function(){var d=await B.get(c,id);return {key:d,snap:{exists:!!d,data:function(){return d||undefined}}}},n,e)}
+  };
+}
+function query(c,f,v){
+  return {
+    where:function(f2,op,v2){return query(c,f2,v2)},
+    onSnapshot:function(n,e){return sub(async function(){
+      var l=await B.list(c,f,v);
+      return {key:l,snap:{size:l.length,docs:l.map(function(x){return {id:x.id,data:function(){return x.data}}})}};
+    },n,e)}
+  };
+}
+var db={
+  doc:docRef,
+  collection:function(c){
+    var q=query(c);
+    q.add=function(d){var id=Date.now().toString(36)+Math.random().toString(36).slice(2,8);return after(B.set(c,id,d))};
+    return q;
+  }
+};
+window.claude={use:async function(n){
+  if(n==='db')return db;
+  if(n==='user')return {can:async function(){return true}};
+  return null;
+}};
+})();
+</script>
+<script>
+var METHODS=['Dinheiro','Pix','Débito','Crédito'], app=document.getElementById('app');
+var db=null, canWrite=true, dbState='loading', night=null, nightId='inicial', payments=[], loaded=false, unsubPay=null, chosen=null, view='';
+
+function brl(n){return n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function hm(t){return new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
+function parseValue(v){v=v.replace(/R\$|\s/g,'');if(v.indexOf(',')>-1)v=v.replace(/\./g,'').replace(',','.');var n=parseFloat(v);return isFinite(n)&&n>0?Math.round(n*100)/100:null}
+function sum(l){return l.reduce(function(a,e){return a+e.value},0)}
+function offlineNote(){
+  if(window.CAIXA_MODE==='local')return '<div class="note">Modo local: os pagamentos ficam salvos só neste aparelho. Para compartilhar entre aparelhos, configure o Firebase no início do script.</div>';
+  if(dbState==='off')return '<div class="note" role="alert">O armazenamento compartilhado não está disponível. Entre na sua conta Claude e abra o link de novo.</div>';
+  return '';
+}
+
+function home(){
+  app.innerHTML='<h1>Painel do restaurante</h1><p class="muted">Escolha uma área para começar.</p>'+
+  '<button class="big" data-go="caixa">Controle de caixa</button>'+offlineNote();
+}
+function caixa(){
+  chosen=null;
+  var form=canWrite&&dbState!=='off'?
+  '<form class="card" id="f" style="margin-top:18px" novalidate>'+
+  '<div class="row"><div><label for="mesa">Mesa</label><input id="mesa" type="text" inputmode="numeric" autocomplete="off"></div>'+
+  '<div><label for="valor">Valor (R$)</label><input id="valor" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00"></div></div>'+
+  '<label id="lm">Forma de pagamento</label><div class="chips" role="group" aria-labelledby="lm">'+
+  METHODS.map(function(m){return '<button type="button" class="chip" aria-pressed="false" data-m="'+m+'">'+m+'</button>'}).join('')+'</div>'+
+  '<button class="submit" type="submit">Registrar pagamento</button><div class="msg" id="msg" role="status"></div></form>'
+  : dbState==='off'?offlineNote()
+  : '<div class="note">Você tem acesso somente para consulta. Peça permissão de colaborador para registrar pagamentos.</div>';
+  app.innerHTML='<div class="top"><button class="link" data-go="">Voltar</button></div>'+
+  '<h1>Controle de caixa</h1><p class="muted">Registre o que o garçom informar.</p>'+form+
+  '<button class="big alt" data-go="pagamentos">Pagamentos da noite</button>';
+  var m=document.getElementById('mesa');if(m)m.focus();
+}
+function itemsHtml(){
+  if(!loaded)return '<p class="muted">Carregando pagamentos…</p>';
+  if(!payments.length)return '<p class="muted">Nenhum pagamento registrado nesta noite.</p>';
+  return payments.map(function(e){
+    return '<div class="item"><div><b>Mesa '+esc(e.table)+'</b><small>'+esc(e.method)+' · '+hm(e.ts)+'</small></div>'+
+    '<div><b>'+brl(e.value)+'</b>'+(canWrite?' <button class="rm" data-rm="'+esc(e.id)+'" data-label="Remover">Remover</button>':'')+'</div></div>';
+  }).join('');
+}
+function pagamentos(){
+  var t=sum(payments);
+  var rows=METHODS.map(function(m){
+    var s=sum(payments.filter(function(e){return e.method===m})), pc=t?Math.round(s/t*100):0;
+    return '<div class="method"><div><span>'+m+'</span><b>'+brl(s)+'</b></div><div class="bar"><i style="width:'+pc+'%"></i></div></div>';
+  }).join('');
+  var since=night&&night.since?night.since:(payments.length?payments[payments.length-1].ts:null);
+  var sub=since?'Desde '+new Date(since).toLocaleDateString('pt-BR')+' às '+hm(since)+' · ':'';
+  app.innerHTML='<div class="top"><button class="link" data-go="caixa">Voltar ao caixa</button></div>'+
+  '<h1>Pagamentos da noite</h1><p class="muted">'+sub+payments.length+' pagamento'+(payments.length===1?'':'s')+'. Atualiza sozinho.</p>'+offlineNote()+
+  '<div class="card" style="margin-top:18px"><p class="muted">Total recebido</p><div class="total">'+brl(t)+'</div></div>'+
+  '<h2>Total por forma de pagamento</h2><div class="card">'+rows+'</div>'+
+  '<h2>Todos os pagamentos</h2><div class="card">'+itemsHtml()+'</div>'+
+  (canWrite&&dbState==='ok'?'<button class="danger" id="reset" data-label="Começar nova noite">Começar nova noite</button><p class="muted" style="margin-top:8px">Os pagamentos anteriores ficam guardados, mas saem dos totais.</p>':'');
+}
+function route(){
+  var h=location.hash.replace('#/','');view=(h==='caixa'||h==='pagamentos')?h:'';
+  if(view==='caixa')caixa();else if(view==='pagamentos')pagamentos();else home();
+  window.scrollTo(0,0);
+}
+
+function subscribePayments(id){
+  if(unsubPay&&id===nightId)return;
+  if(unsubPay)unsubPay();
+  nightId=id;loaded=false;payments=[];
+  unsubPay=db.collection('pagamentos').where('night','==',id).onSnapshot(function(snap){
+    payments=snap.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,method:x.method,value:Number(x.value)||0,ts:x.ts||0}})
+      .sort(function(a,b){return b.ts-a.ts});
+    loaded=true;if(view==='pagamentos')pagamentos();
+  },function(){dbState='off';loaded=true;route()});
+}
+async function init(){
+  route();
+  var d=null;try{d=await claude.use('db')}catch(e){}
+  if(!d){dbState='off';route();return}
+  db=d;dbState='ok';
+  try{var u=await claude.use('user');if(u){var c=await u.can('data.write');if(c===false)canWrite=false}}catch(e){}
+  db.doc('config/noite').onSnapshot(function(s){
+    night=s.exists?s.data():null;
+    subscribePayments(night&&night.id?night.id:'inicial');
+    if(view==='pagamentos')pagamentos();
+  },function(){dbState='off';route()});
+  if(view!=='caixa'||!document.getElementById('mesa')||!document.getElementById('mesa').value)route();
+}
+
+document.addEventListener('click',async function(ev){
+  var b=ev.target.closest('button');if(!b)return;
+  if(b.hasAttribute('data-go')){location.hash='#/'+b.getAttribute('data-go');return}
+  if(b.dataset.m){chosen=b.dataset.m;document.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed',c===b?'true':'false')});return}
+  if(b.hasAttribute('data-rm')||b.id==='reset'){
+    if(!b.hasAttribute('data-armed')){
+      b.setAttribute('data-armed','1');b.textContent='Toque de novo para confirmar';
+      setTimeout(function(){if(b.isConnected){b.removeAttribute('data-armed');b.textContent=b.dataset.label}},3500);return}
+    b.disabled=true;
+    try{
+      if(b.id==='reset')await db.doc('config/noite').set({id:'n'+Date.now(),since:Date.now()});
+      else await db.doc('pagamentos/'+b.getAttribute('data-rm')).delete();
+    }catch(e){b.disabled=false;b.removeAttribute('data-armed');b.textContent='Não foi possível. Tentar de novo';if(e&&e.code==='invalid_argument'){canWrite=false}}
+  }
+});
+document.addEventListener('submit',async function(ev){
+  ev.preventDefault();
+  var mesa=document.getElementById('mesa'),valor=document.getElementById('valor'),msg=document.getElementById('msg'),btn=ev.target.querySelector('.submit');
+  var t=mesa.value.trim(),v=parseValue(valor.value);
+  function fail(s,el){msg.className='msg err';msg.textContent=s;if(el)el.focus()}
+  if(!t)return fail('Informe o número da mesa.',mesa);
+  if(!chosen)return fail('Escolha a forma de pagamento.');
+  if(v===null)return fail('Informe um valor maior que zero, como 45,50.',valor);
+  if(!db)return fail('Sem conexão com o armazenamento compartilhado.');
+  btn.disabled=true;var m=chosen;
+  try{
+    await db.collection('pagamentos').add({night:nightId,table:t,method:m,value:v,ts:Date.now()});
+    msg.className='msg ok';msg.textContent='Registrado: mesa '+t+', '+m+', '+brl(v)+'.';
+    mesa.value='';valor.value='';chosen=null;
+    document.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed','false')});
+    mesa.focus();
+  }catch(e){
+    fail(e&&e.code==='invalid_argument'?'Você não tem permissão para registrar pagamentos.':'Não foi possível registrar. Tente de novo.');
+  }
+  btn.disabled=false;
+});
+window.addEventListener('hashchange',route);init();
+</script>
+</body>
+</html>
