@@ -117,8 +117,17 @@ var db={
     return q;
   }
 };
+function loadJs(u){return new Promise(function(ok,no){var t=document.createElement('script');t.src=u;t.onload=ok;t.onerror=no;document.head.appendChild(t)})}
+var fsdb=null;
+async function fsDb(){
+  if(fsdb)return fsdb;
+  var b='https://www.gstatic.com/firebasejs/10.12.2/';
+  await loadJs(b+'firebase-app-compat.js');await loadJs(b+'firebase-firestore-compat.js');
+  firebase.initializeApp({apiKey:cfg.apiKey,projectId:cfg.projectId});
+  fsdb=firebase.firestore();return fsdb;
+}
 window.claude={use:async function(n){
-  if(n==='db')return db;
+  if(n==='db')return fs?await fsDb():db;
   if(n==='user')return {can:async function(){return true}};
   return null;
 }};
@@ -224,7 +233,7 @@ document.addEventListener('click',async function(ev){
     try{
       if(b.id==='reset')await db.doc('config/noite').set({id:'n'+Date.now(),since:Date.now()});
       else await db.doc('pagamentos/'+b.getAttribute('data-rm')).delete();
-    }catch(e){b.disabled=false;b.removeAttribute('data-armed');b.textContent='Não foi possível. Tentar de novo';if(e&&e.code==='invalid_argument'){canWrite=false}}
+    }catch(e){b.disabled=false;b.removeAttribute('data-armed');b.textContent='Não foi possível. Tentar de novo';if(e&&(e.code==='invalid_argument'||e.code==='permission-denied')){canWrite=false}}
   }
 });
 document.addEventListener('submit',async function(ev){
@@ -244,7 +253,7 @@ document.addEventListener('submit',async function(ev){
     document.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed','false')});
     mesa.focus();
   }catch(e){
-    fail(e&&e.code==='invalid_argument'?'Você não tem permissão para registrar pagamentos.':'Não foi possível registrar. Tente de novo.');
+    fail(e&&(e.code==='invalid_argument'||e.code==='permission-denied')?'Você não tem permissão para registrar pagamentos.':'Não foi possível registrar. Tente de novo.');
   }
   btn.disabled=false;
 });
