@@ -100,6 +100,14 @@ input[type=password]{width:100%;padding:14px;border:1.5px solid rgba(0,48,112,.4
 body:not([data-role="caixa"]):not([data-role="garcom"]) .fabs{display:none}
 body[data-role="garcom"] .fab:not(#fabout){display:none}
 body[data-mode="local"] #fabout{display:none}
+.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);max-width:90vw;padding:12px 18px;border-radius:999px;background:var(--accent);color:var(--on-accent);font-weight:600;text-align:center;box-shadow:0 6px 18px rgba(0,48,112,.3);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;z-index:20}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.tile{aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:6px;border:0;border-radius:16px;background:var(--accent);color:var(--on-accent);box-shadow:0 3px 8px rgba(0,48,112,.22)}
+.tile .tn{font-size:2.5rem;font-weight:800;line-height:1}.tile .tn.long{font-size:1.45rem}
+.tile .tl{width:58%;height:2px;background:rgba(248,240,230,.6)}.tile .tt{font-size:.95rem;font-weight:600}
+.bigmesa{font-size:4.6rem;font-weight:800;line-height:1;color:var(--accent);margin:2px 0 4px}.bigmesa.long{font-size:2.8rem}
+.gt{font-size:1.5rem}
 </style>
 </head>
 <body>
@@ -110,6 +118,7 @@ body[data-mode="local"] #fabout{display:none}
 <button class="fab" data-go="analise" aria-label="Análise semanal"><span class="lab">Análise semanal</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M12 20V4M19 20v-6"/></svg></button>
 <button class="fab" id="fabout" data-out="1" aria-label="Sair"><span class="lab">Sair</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
 </nav>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script>
 /* CONFIGURAÇÃO DO ARMAZENAMENTO
    Deixe vazio para usar o modo local (dados salvos só no navegador do aparelho).
@@ -158,6 +167,7 @@ function docRef(path){
   var p=path.split('/'),c=p[0],id=p[1];
   return {
     set:function(d){return after(B.set(c,id,d))},
+    update:function(d){return after((async function(){var o=(await B.get(c,id))||{};Object.keys(d).forEach(function(k){o[k]=d[k]});await B.set(c,id,o)})())},
     inc:function(f,n){return after((async function(){var d=(await B.get(c,id))||{};d[f]=Math.round(((d[f]||0)+n)*1000)/1000;await B.set(c,id,d)})())},
     delete:function(){return after(B.del(c,id))},
     onSnapshot:function(n,e){return sub(async function(){var d=await B.get(c,id);return {key:d,snap:{exists:!!d,data:function(){return d||undefined}}}},n,e)}
@@ -260,7 +270,7 @@ function pagamentos(){
   '<div class="card" style="margin-top:18px"><p class="muted">Total recebido</p><div class="total">'+brl(t)+'</div></div>'+
   '<h2>Total por forma de pagamento</h2><div class="card">'+rows+'</div>'+
   '<h2>Todos os pagamentos</h2><div class="card">'+itemsHtml()+'</div>'+
-  (canWrite&&dbState==='ok'?'<button class="danger" id="reset" data-label="Começar nova noite">Começar nova noite</button><p class="muted" style="margin-top:8px">A noite é arquivada no Histórico e os totais recomeçam do zero.</p>':'');
+  (canWrite&&dbState==='ok'?(Object.keys(mesaData()).length?'<div class="note" role="alert" style="margin-top:20px"><b>Há '+plural(Object.keys(mesaData()).length,'mesa aberta','mesas abertas')+'.</b> Feche as contas antes de começar uma nova noite.</div>':'')+'<button class="danger" id="reset" data-label="Começar nova noite">Começar nova noite</button><p class="muted" style="margin-top:8px">A noite é arquivada no Histórico e os totais recomeçam do zero.</p>':'');
 }
 var MK=['dinheiro','pix','debito','credito'],DOW=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'],noites=[],loadedN=false,unsubDet=null,detId='',detPay=[],detOk=false,viewArg='';
 function fdate(t){return new Date(t).toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'})}
@@ -362,7 +372,7 @@ function arm(b){if(b.hasAttribute('data-armed'))return false;b.setAttribute('dat
 function seg(a){return '<div class="seg"><button data-go="pedidos" aria-current="'+(a==='pedidos'?'page':'false')+'">Novo pedido</button><button data-go="mesas" aria-current="'+(a==='mesas'?'page':'false')+'">Mesas abertas</button></div>'}
 function mesaData(){
   var M={};
-  lines.forEach(function(l){var k=mkey(l.table),o=M[k]||(M[k]={key:k,table:l.table,tot:0,qty:0,lines:[]});o.tot=r2(o.tot+l.price*l.qty);o.qty+=l.qty;o.lines.push(l)});
+  lines.forEach(function(l){if(l.closed)return;var k=mkey(l.table),o=M[k]||(M[k]={key:k,table:l.table,tot:0,qty:0,lines:[]});o.tot=r2(o.tot+l.price*l.qty);o.qty+=l.qty;o.lines.push(l)});
   return M;
 }
 function pedidos(){
@@ -399,15 +409,38 @@ async function sendOrder(b){
   }catch(e){fail('Não foi possível enviar. Tente de novo.')}
   b.disabled=false;
 }
-function mesas(){
-  var M=mesaData(),ks=Object.keys(M).map(function(k){return M[k]});
+var mSearch='';
+function gridHtml(){
+  var M=mesaData(),ks=Object.keys(M).map(function(k){return M[k]}),q=norm(mSearch).replace(/\s+/g,'');
   ks.sort(function(a,b){return String(a.table).localeCompare(String(b.table),'pt-BR',{numeric:true})});
-  var html=ks.map(function(o){
-    var det=openM[o.key]?o.lines.map(function(l){return '<div class="item"><div><b>'+l.qty+'× '+esc(l.name)+'</b><small>'+(l.by?esc(l.by)+' · ':'')+(l.obs?esc(l.obs)+' · ':'')+hm(l.ts)+'</small></div><div><b>'+brl(r2(l.price*l.qty))+'</b>'+(role==='caixa'?' <button class="rm" data-ld="'+esc(l.id)+'" data-label="Remover">Remover</button>':'')+'</div></div>'}).join(''):'';
-    return '<div class="card" style="margin-bottom:12px"><div class="item"><div><b>Mesa '+esc(o.table)+'</b><small>'+plural(o.qty,'item','itens')+'</small></div><b>'+brl(o.tot)+'</b></div>'+det+'<button class="link" data-tg="'+esc(o.key)+'">'+(openM[o.key]?'Ocultar itens':'Ver itens')+'</button></div>';
+  var l=q?ks.filter(function(o){return norm(o.table).replace(/\s+/g,'').indexOf(q)>-1}):ks;
+  if(!l.length)return '<div class="note" style="grid-column:1/-1">'+(q?'Nenhuma mesa aberta com “'+esc(mSearch.trim())+'”. <button class="link" data-newmesa="'+esc(mSearch.trim())+'">Lançar pedido para a mesa '+esc(mSearch.trim())+'</button>':'Nenhuma mesa aberta no momento.')+'</div>';
+  return l.map(function(o){return '<button class="tile" data-go="mesas/'+encodeURIComponent(o.key)+'" aria-label="Mesa '+esc(o.table)+', total '+brl(o.tot)+'"><span class="tn'+(String(o.table).length>3?' long':'')+'">'+esc(o.table)+'</span><span class="tl"></span><span class="tt">'+brl(o.tot)+'</span></button>'}).join('');
+}
+function mesas(){
+  if(viewArg){mesaDetalhe();return}
+  app.innerHTML=backBtn('','Voltar')+'<h1>Mesas abertas</h1><p class="muted">Toque em uma mesa para ver a conta. Atualiza sozinho.</p>'+offlineNote()+seg('mesas')+
+  '<input id="msq" type="search" inputmode="search" placeholder="Digite a mesa desejada" autocomplete="off" aria-label="Pesquisar mesa" value="'+esc(mSearch)+'" style="margin:14px 0">'+
+  '<div class="mgrid" id="mgrid">'+gridHtml()+'</div>';
+}
+function mesaDetalhe(){
+  var o=mesaData()[viewArg];
+  if(!o){app.innerHTML=backBtn('mesas','Voltar às mesas')+'<div class="note">Esta mesa não tem conta aberta. Ela pode já ter sido fechada.</div>';return}
+  var its=o.lines.map(function(l){
+    return '<div class="item"><div><b>'+l.qty+'× '+esc(l.name)+'</b><small>'+(l.by?esc(l.by)+' · ':'')+(l.obs?esc(l.obs)+' · ':'')+hm(l.ts)+'</small></div><div><b>'+brl(r2(l.price*l.qty))+'</b>'+(role==='caixa'?' <button class="rm" data-ld="'+esc(l.id)+'" data-label="Remover">Remover</button>':'')+'</div></div>';
   }).join('');
-  app.innerHTML=backBtn('','Voltar')+'<h1>Mesas abertas</h1><p class="muted">Pedidos de cada mesa nesta noite. Atualiza sozinho.</p>'+offlineNote()+seg('mesas')+
-  '<div style="margin-top:14px">'+(html||'<div class="note">Nenhum pedido lançado nesta noite.</div>')+'</div>';
+  app.innerHTML=backBtn('mesas','Voltar às mesas')+'<div class="center"><p class="muted">Conta da mesa</p><div class="bigmesa'+(String(o.table).length>3?' long':'')+'">'+esc(o.table)+'</div></div>'+
+  '<div class="card" style="margin-top:14px">'+its+'<div class="item"><b>Total da conta</b><b class="gt">'+brl(o.tot)+'</b></div></div>'+
+  (role==='caixa'?'<button class="submit" id="fechar" data-label="Fechar conta" style="margin-top:14px">Fechar conta</button><p class="muted" style="margin-top:8px">Encerra a conta e tira a mesa da lista. Os itens ficam guardados.</p><div class="msg" id="fmsg" role="alert"></div>':'<p class="muted" style="margin-top:12px">Só o caixa pode fechar a conta.</p>')+
+  '<button class="big alt" data-newmesa="'+esc(o.table)+'">Adicionar itens a esta mesa</button>';
+}
+async function closeAccount(b){
+  var o=mesaData()[viewArg];if(!o||!db)return;
+  b.disabled=true;var ts=Date.now(),cid='c'+ts;
+  try{
+    await Promise.all(o.lines.map(function(l){return db.doc('itens/'+l.id).update({closed:true,closedAt:ts,conta:cid})}));
+    toast('Conta da mesa '+o.table+' fechada · '+brl(o.tot));location.hash='#/mesas';
+  }catch(e){b.disabled=false;b.removeAttribute('data-armed');b.textContent='Fechar conta';var m=document.getElementById('fmsg');if(m){m.className='msg err';m.textContent='Não foi possível fechar a conta. Tente de novo.'}}
 }
 function mrow(m){return '<div class="mrow"><input type="text" value="'+esc(m.name)+'" data-mid="'+esc(m.id)+'" data-mf="name" aria-label="Nome"><input type="text" inputmode="decimal" value="'+(m.price==null?'':fmtIn(m.price))+'" placeholder="sem preço" data-mid="'+esc(m.id)+'" data-mf="price" aria-label="Preço"><button class="rm" data-mdel="'+esc(m.id)+'" data-label="Excluir">Excluir</button></div>'}
 function cardapio(){
@@ -425,17 +458,20 @@ function addMenuItem(){
 function subscribeLines(id){
   if(unsubL&&subL===id)return;if(unsubL)unsubL();subL=id;lines=[];
   unsubL=db.collection('itens').where('night','==',id).onSnapshot(function(sn){
-    lines=sn.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,name:x.name,price:Number(x.price)||0,qty:Number(x.qty)||1,obs:x.obs||'',by:x.by||'',ts:x.ts||0}}).sort(function(a,b){return a.ts-b.ts});
+    lines=sn.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,name:x.name,price:Number(x.price)||0,qty:Number(x.qty)||1,obs:x.obs||'',by:x.by||'',closed:!!x.closed,ts:x.ts||0}}).sort(function(a,b){return a.ts-b.ts});
     if(view==='mesas')mesas();
   },function(){});
 }
+var toastT=null;
+function toast(t){var e=document.getElementById('toast');if(!e)return;e.textContent=t;e.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){e.classList.remove('show')},1600);try{if(navigator.vibrate)navigator.vibrate(25)}catch(x){}}
 function handlePed(b){
   var d=b.dataset;
   if(d.pc){pedCat=d.pc;updItems();return true}
   if(d.add){var m=menu.filter(function(x){return x.id===d.add})[0];if(!m||m.price==null)return true;
-    var c=cart.filter(function(x){return x.id===m.id})[0];if(c)c.qty++;else cart.push({id:m.id,name:m.name,price:m.price,qty:1,obs:''});updCart();return true}
+    var c=cart.filter(function(x){return x.id===m.id})[0];if(c)c.qty++;else cart.push({id:m.id,name:m.name,price:m.price,qty:1,obs:''});updCart();var cc=cart.filter(function(x){return x.id===m.id})[0];toast('✓ '+m.name+' adicionado · '+cc.qty+'×');return true}
   if(d.q){var c2=cart.filter(function(x){return x.id===d.q})[0];if(c2){c2.qty+=Number(d.d);if(c2.qty<1)cart=cart.filter(function(x){return x!==c2})}updCart();return true}
-  if(d.tg){openM[d.tg]=!openM[d.tg];mesas();return true}
+  if(d.newmesa!==undefined){pedMesa=d.newmesa;location.hash='#/pedidos';return true}
+  if(b.id==='fechar'){if(arm(b))return true;closeAccount(b);return true}
   if(d.ld){if(arm(b))return true;db.doc('itens/'+d.ld).delete().catch(function(){});return true}
   if(d.mdel){if(arm(b))return true;menu=menu.filter(function(x){return x.id!==d.mdel});saveMenu();cardapio();return true}
   if(b.id==='nadd'){addMenuItem();return true}
@@ -444,7 +480,7 @@ function handlePed(b){
 }
 document.addEventListener('input',function(ev){
   var t=ev.target,d=t.dataset||{};
-  if(t.id==='pmesa')pedMesa=t.value;else if(t.id==='sq')stQty=t.value;else if(t.id==='sn')stNote=t.value;else if(t.id==='stq'){stSearch=t.value;var el=document.getElementById('stlist');if(el)el.innerHTML=stockList()}
+  if(t.id==='pmesa')pedMesa=t.value;else if(t.id==='sq')stQty=t.value;else if(t.id==='sn')stNote=t.value;else if(t.id==='msq'){mSearch=t.value;var mg=document.getElementById('mgrid');if(mg)mg.innerHTML=gridHtml()}else if(t.id==='stq'){stSearch=t.value;var el=document.getElementById('stlist');if(el)el.innerHTML=stockList()}
   else if(d.obs){var c=cart.filter(function(x){return x.id===d.obs})[0];if(c)c.obs=t.value}
 });
 document.addEventListener('change',function(ev){
