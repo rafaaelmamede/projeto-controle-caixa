@@ -132,6 +132,7 @@ body.modal-open{overflow:hidden}
 .sw[aria-checked="true"] .sw-k{transform:translateX(40px)}
 .sw-l{position:absolute;top:0;bottom:0;display:flex;align-items:center;font-size:.8rem;font-weight:800;letter-spacing:.02em}
 .sw[aria-checked="true"] .sw-l{left:13px;color:#fff}.sw[aria-checked="false"] .sw-l{right:11px;color:var(--accent)}
+.sndrow{padding:10px 16px}.sndic{display:flex;align-items:center;padding:6px;border:0;background:none;color:var(--accent)}.sndic svg{width:32px;height:32px}
 </style>
 </head>
 <body>
@@ -516,11 +517,12 @@ function notifyNew(){
   toast(msg+(soundOn&&!ok?' · toque na tela para ativar o som':''),4500);
   if(soundOn){try{if(navigator.vibrate)navigator.vibrate([180,90,180])}catch(x){}}
 }
-function sndRow(){return '<div class="card sndrow" style="margin-top:24px"><div><b>Som de novos pedidos</b><small>'+(soundOn?'Toca quando o garçom lança um pedido.':'Desligado.')+'</small><button class="link" data-snd="test" style="padding:6px 0">Testar som</button></div><button type="button" class="sw" role="switch" aria-checked="'+soundOn+'" data-snd="toggle" aria-label="Som de novos pedidos"><span class="sw-l">'+(soundOn?'ON':'OFF')+'</span><span class="sw-k"></span></button></div>'}
+function sndIcon(on){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z"/>'+(on?'<path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>':'<path d="m16 9 5 6M21 9l-5 6"/>')+'</svg>'}
+function sndRow(){return '<div class="card sndrow" style="margin-top:24px"><button type="button" class="sndic" data-snd="test" aria-label="Testar som" title="Testar som">'+sndIcon(soundOn)+'</button><button type="button" class="sw" role="switch" aria-checked="'+soundOn+'" data-snd="toggle" aria-label="Som de novos pedidos" title="Som de novos pedidos"><span class="sw-l">'+(soundOn?'ON':'OFF')+'</span><span class="sw-k"></span></button></div>'}
 function handleSnd(b){
   var a=b.dataset.snd;if(!a)return false;
   unlockAudio();
-  if(a==='toggle'){soundOn=!soundOn;try{localStorage.setItem('caixa:som',soundOn?'on':'off')}catch(e){}b.setAttribute('aria-checked',String(soundOn));var l=b.querySelector('.sw-l');if(l)l.textContent=soundOn?'ON':'OFF';var sm=document.querySelector('.sndrow small');if(sm)sm.textContent=soundOn?'Toca quando o garçom lança um pedido.':'Desligado.';if(soundOn)playChime()}
+  if(a==='toggle'){soundOn=!soundOn;try{localStorage.setItem('caixa:som',soundOn?'on':'off')}catch(e){}b.setAttribute('aria-checked',String(soundOn));var l=b.querySelector('.sw-l');if(l)l.textContent=soundOn?'ON':'OFF';var ic=document.querySelector('.sndic');if(ic)ic.innerHTML=sndIcon(soundOn);if(soundOn)playChime()}
   else playChime();
   return true;
 }
