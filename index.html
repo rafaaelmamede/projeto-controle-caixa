@@ -109,6 +109,7 @@ body[data-mode="local"] #fabout{display:none}
 .bigmesa{font-size:4.6rem;font-weight:800;line-height:1;color:var(--accent);margin:2px 0 4px}.bigmesa.long{font-size:2.8rem}
 .gt{font-size:1.5rem}
 .rb .rr{text-align:right;flex:none}
+.sndrow{display:flex;justify-content:space-between;align-items:center;gap:10px}.sndrow small{display:block;color:var(--muted)}.sndbtns{display:flex;flex-direction:column;align-items:flex-end}
 </style>
 </head>
 <body>
@@ -231,7 +232,7 @@ function home(){
   var g=role==='garcom';
   app.innerHTML='<div class="center"><div class="logo"><img src="'+LOGO+'" alt="Tri Lanches, comida brasileira"></div><h1>Painel do restaurante</h1><p class="muted">Escolha uma área para começar.</p></div>'+
   (g?'':'<button class="big" data-go="caixa">Controle de caixa</button>')+'<button class="big" data-go="pedidos"'+(g?'':' style="margin-top:24px"')+'>Lançamento de pedidos</button>'+
-  (g?'':'<button class="big" data-go="estoque" style="margin-top:24px">Controle de estoque</button>')+offlineNote();
+  (g?'':'<button class="big" data-go="estoque" style="margin-top:24px">Controle de estoque</button>')+(g?'':sndRow())+offlineNote();
 }
 function caixa(){
   chosen=null;
@@ -457,14 +458,51 @@ function addMenuItem(){
   menu.push({id:'i'+Date.now(),cat:c.value,code:'',name:name,desc:'',price:v});saveMenu();cardapio();
 }
 function subscribeLines(id){
-  if(unsubL&&subL===id)return;if(unsubL)unsubL();subL=id;lines=[];
+  if(unsubL&&subL===id)return;if(unsubL)unsubL();subL=id;lines=[];seenL=null;
   unsubL=db.collection('itens').where('night','==',id).onSnapshot(function(sn){
     lines=sn.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,name:x.name,price:Number(x.price)||0,qty:Number(x.qty)||1,obs:x.obs||'',by:x.by||'',closed:!!x.closed,conta:x.conta||'',closedAt:x.closedAt||0,ts:x.ts||0}}).sort(function(a,b){return a.ts-b.ts});
+    notifyNew();
     if(view==='mesas')mesas();else refreshContas();
   },function(){});
 }
+var audioCtx=null,soundOn=true,seenL=null;
+try{soundOn=localStorage.getItem('caixa:som')!=='off'}catch(e){}
+function unlockAudio(){try{if(!audioCtx){var AC=window.AudioContext||window.webkitAudioContext;if(AC)audioCtx=new AC()}if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume()}catch(e){}}
+['click','touchstart','keydown'].forEach(function(n){document.addEventListener(n,unlockAudio,{passive:true})});
+function playChime(){
+  if(!audioCtx||audioCtx.state!=='running')return false;
+  try{
+    var t0=audioCtx.currentTime;
+    [[880,0],[1175,.16],[1568,.32]].forEach(function(n){
+      var o=audioCtx.createOscillator(),g=audioCtx.createGain(),t=t0+n[1];
+      o.type='sine';o.frequency.setValueAtTime(n[0],t);
+      g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.5,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+0.5);
+      o.connect(g);g.connect(audioCtx.destination);o.start(t);o.stop(t+0.55);
+    });
+    return true;
+  }catch(e){return false}
+}
+function notifyNew(){
+  var cur={},fresh=[];
+  lines.forEach(function(l){cur[l.id]=1;if(seenL&&!seenL[l.id]&&!l.closed&&role==='caixa'&&l.by&&l.by!==userName)fresh.push(l)});
+  seenL=cur;
+  if(!fresh.length)return;
+  var ms=[],q=0;fresh.forEach(function(l){var m=String(l.table);if(ms.indexOf(m)<0)ms.push(m);q+=l.qty});
+  var msg=(ms.length===1?'Novo pedido · mesa '+ms[0]:'Novos pedidos · mesas '+ms.join(', '))+' ('+plural(q,'item','itens')+')';
+  var ok=soundOn&&playChime();
+  toast(msg+(soundOn&&!ok?' · toque na tela para ativar o som':''),4500);
+  if(soundOn){try{if(navigator.vibrate)navigator.vibrate([180,90,180])}catch(x){}}
+}
+function sndRow(){return '<div class="card sndrow" style="margin-top:24px"><div><b>Som de novos pedidos</b><small>'+(soundOn?'Ligado: toca quando o garçom lança um pedido.':'Desligado.')+'</small></div><div class="sndbtns"><button class="link" data-snd="toggle">'+(soundOn?'Desligar':'Ligar')+'</button><button class="link" data-snd="test">Testar</button></div></div>'}
+function handleSnd(b){
+  var a=b.dataset.snd;if(!a)return false;
+  unlockAudio();
+  if(a==='toggle'){soundOn=!soundOn;try{localStorage.setItem('caixa:som',soundOn?'on':'off')}catch(e){}if(view==='')home();if(soundOn)playChime()}
+  else playChime();
+  return true;
+}
 var toastT=null;
-function toast(t){var e=document.getElementById('toast');if(!e)return;e.textContent=t;e.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){e.classList.remove('show')},1600);try{if(navigator.vibrate)navigator.vibrate(25)}catch(x){}}
+function toast(t,ms){var e=document.getElementById('toast');if(!e)return;e.textContent=t;e.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){e.classList.remove('show')},ms||1600);try{if(navigator.vibrate)navigator.vibrate(25)}catch(x){}}
 function handlePed(b){
   var d=b.dataset;
   if(d.pc){pedCat=d.pc;updItems();return true}
@@ -739,7 +777,7 @@ document.addEventListener('click',async function(ev){
     document.querySelectorAll('.fab.open').forEach(function(x){x.classList.remove('open')});
     b.classList.add('open');setTimeout(function(){b.classList.remove('open')},3500);return}
   if(b.hasAttribute('data-go')){document.querySelectorAll('.fab.open').forEach(function(x){x.classList.remove('open')});location.hash='#/'+b.getAttribute('data-go');return}
-  if(handlePed(b)||handleStock(b)||handleAuth(b))return;
+  if(handlePed(b)||handleStock(b)||handleAuth(b)||handleSnd(b))return;
   if(b.dataset.m){chosen=b.dataset.m;document.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed',c===b?'true':'false')});return}
   if(b.hasAttribute('data-rm')||b.id==='reset'){
     if(!b.hasAttribute('data-armed')){
