@@ -108,6 +108,7 @@ body[data-mode="local"] #fabout{display:none}
 .tile .tl{width:58%;height:2px;background:rgba(248,240,230,.6)}.tile .tt{font-size:.95rem;font-weight:600}
 .bigmesa{font-size:4.6rem;font-weight:800;line-height:1;color:var(--accent);margin:2px 0 4px}.bigmesa.long{font-size:2.8rem}
 .gt{font-size:1.5rem}
+.rb .rr{text-align:right;flex:none}
 </style>
 </head>
 <body>
@@ -245,7 +246,7 @@ function caixa(){
   : dbState==='off'?offlineNote()
   : '<div class="note">Você tem acesso somente para consulta. Peça permissão de colaborador para registrar pagamentos.</div>';
   app.innerHTML='<div class="top"><button class="link" data-go="">Voltar</button></div>'+
-  '<div class="brand"><div class="logo"><img src="'+LOGO+'" alt="Tri Lanches"></div><div><h1>Controle de caixa</h1><p class="muted">Registre o que o garçom informar.</p></div></div>'+form+
+  '<div class="brand"><div class="logo"><img src="'+LOGO+'" alt="Tri Lanches"></div><div><h1>Controle de caixa</h1><p class="muted">Registre o que o garçom informar.</p></div></div>'+'<h2 style="margin-top:22px">Contas a receber</h2><div id="contas">'+contasHtml()+'</div><h2>Pagamento avulso</h2>'+form+
   '<button class="big alt" data-go="pagamentos">Pagamentos da noite</button>';
   var m=document.getElementById('mesa');if(m)m.focus();
 }
@@ -270,7 +271,7 @@ function pagamentos(){
   '<div class="card" style="margin-top:18px"><p class="muted">Total recebido</p><div class="total">'+brl(t)+'</div></div>'+
   '<h2>Total por forma de pagamento</h2><div class="card">'+rows+'</div>'+
   '<h2>Todos os pagamentos</h2><div class="card">'+itemsHtml()+'</div>'+
-  (canWrite&&dbState==='ok'?(Object.keys(mesaData()).length?'<div class="note" role="alert" style="margin-top:20px"><b>Há '+plural(Object.keys(mesaData()).length,'mesa aberta','mesas abertas')+'.</b> Feche as contas antes de começar uma nova noite.</div>':'')+'<button class="danger" id="reset" data-label="Começar nova noite">Começar nova noite</button><p class="muted" style="margin-top:8px">A noite é arquivada no Histórico e os totais recomeçam do zero.</p>':'');
+  (canWrite&&dbState==='ok'?novaNoiteAviso()+'<button class="danger" id="reset" data-label="Começar nova noite">Começar nova noite</button><p class="muted" style="margin-top:8px">A noite é arquivada no Histórico e os totais recomeçam do zero.</p>':'');
 }
 var MK=['dinheiro','pix','debito','credito'],DOW=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'],noites=[],loadedN=false,unsubDet=null,detId='',detPay=[],detOk=false,viewArg='';
 function fdate(t){return new Date(t).toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'})}
@@ -439,7 +440,7 @@ async function closeAccount(b){
   b.disabled=true;var ts=Date.now(),cid='c'+ts;
   try{
     await Promise.all(o.lines.map(function(l){return db.doc('itens/'+l.id).update({closed:true,closedAt:ts,conta:cid})}));
-    toast('Conta da mesa '+o.table+' fechada · '+brl(o.tot));location.hash='#/mesas';
+    toast('Conta da mesa '+o.table+' fechada · '+brl(o.tot));location.hash='#/conta/'+encodeURIComponent(cid);
   }catch(e){b.disabled=false;b.removeAttribute('data-armed');b.textContent='Fechar conta';var m=document.getElementById('fmsg');if(m){m.className='msg err';m.textContent='Não foi possível fechar a conta. Tente de novo.'}}
 }
 function mrow(m){return '<div class="mrow"><input type="text" value="'+esc(m.name)+'" data-mid="'+esc(m.id)+'" data-mf="name" aria-label="Nome"><input type="text" inputmode="decimal" value="'+(m.price==null?'':fmtIn(m.price))+'" placeholder="sem preço" data-mid="'+esc(m.id)+'" data-mf="price" aria-label="Preço"><button class="rm" data-mdel="'+esc(m.id)+'" data-label="Excluir">Excluir</button></div>'}
@@ -458,8 +459,8 @@ function addMenuItem(){
 function subscribeLines(id){
   if(unsubL&&subL===id)return;if(unsubL)unsubL();subL=id;lines=[];
   unsubL=db.collection('itens').where('night','==',id).onSnapshot(function(sn){
-    lines=sn.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,name:x.name,price:Number(x.price)||0,qty:Number(x.qty)||1,obs:x.obs||'',by:x.by||'',closed:!!x.closed,ts:x.ts||0}}).sort(function(a,b){return a.ts-b.ts});
-    if(view==='mesas')mesas();
+    lines=sn.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,name:x.name,price:Number(x.price)||0,qty:Number(x.qty)||1,obs:x.obs||'',by:x.by||'',closed:!!x.closed,conta:x.conta||'',closedAt:x.closedAt||0,ts:x.ts||0}}).sort(function(a,b){return a.ts-b.ts});
+    if(view==='mesas')mesas();else refreshContas();
   },function(){});
 }
 var toastT=null;
@@ -582,14 +583,81 @@ function editItem(t,d){
   saveItems();
 }
 
+function contasData(){
+  var C={};
+  lines.forEach(function(l){if(!l.closed||!l.conta)return;var o=C[l.conta]||(C[l.conta]={id:l.conta,table:l.table,closedAt:l.closedAt||0,tot:0,pago:0,lines:[],pays:[]});o.tot=r2(o.tot+l.price*l.qty);o.lines.push(l)});
+  payments.forEach(function(p){var o=p.conta&&C[p.conta];if(o){o.pago=r2(o.pago+p.value);o.pays.push(p)}});
+  Object.keys(C).forEach(function(k){C[k].rest=r2(C[k].tot-C[k].pago)});
+  return C;
+}
+function contasHtml(){
+  var C=contasData(),a=Object.keys(C).map(function(k){return C[k]});
+  var pend=a.filter(function(o){return o.rest>0}).sort(function(x,y){return x.closedAt-y.closedAt}),paid=a.filter(function(o){return o.rest<=0}).sort(function(x,y){return y.closedAt-x.closedAt});
+  function row(o){return '<button class="rb" data-go="conta/'+encodeURIComponent(o.id)+'"><span><b>Mesa '+esc(o.table)+'</b><small>Fechada às '+hm(o.closedAt)+(o.rest>0&&o.pago>0?' · pago '+brl(o.pago):'')+'</small></span><span class="rr"><b>'+brl(o.rest>0?o.rest:o.tot)+'</b><small>'+(o.rest>0?'a receber':'quitada')+'</small></span></button>'}
+  var h=pend.length?'<div class="card">'+pend.map(row).join('')+'</div>':'<div class="note">Nenhuma conta fechada aguardando pagamento.</div>';
+  if(paid.length)h+='<h2>Quitadas nesta noite</h2><div class="card">'+paid.map(row).join('')+'</div>';
+  return h;
+}
+function novaNoiteAviso(){
+  var a=Object.keys(mesaData()).length,C=contasData(),b=Object.keys(C).filter(function(k){return C[k].rest>0}).length,p=[];
+  if(a)p.push(plural(a,'mesa aberta','mesas abertas'));
+  if(b)p.push(plural(b,'conta fechada sem pagamento completo','contas fechadas sem pagamento completo'));
+  return p.length?'<div class="note" role="alert" style="margin-top:20px"><b>Há '+p.join(' e ')+'.</b> Resolva antes de começar uma nova noite.</div>':'';
+}
+function contaBody(o){
+  var its=o.lines.map(function(l){return '<div class="item"><div><b>'+l.qty+'× '+esc(l.name)+'</b><small>'+(l.obs?esc(l.obs)+' · ':'')+hm(l.ts)+'</small></div><b>'+brl(r2(l.price*l.qty))+'</b></div>'}).join('');
+  var pays=o.pays.slice().sort(function(x,y){return x.ts-y.ts}).map(function(p){return '<div class="item"><div><b>'+esc(p.method)+'</b><small>'+hm(p.ts)+'</small></div><b>'+brl(p.value)+'</b></div>'}).join('');
+  return '<div class="card" style="margin-top:14px">'+its+'<div class="item"><b>Total da conta</b><b>'+brl(o.tot)+'</b></div></div>'+
+  '<div class="card" style="margin-top:12px"><div class="item" style="padding-top:0"><span>Valor pago</span><b>'+brl(o.pago)+'</b></div><div class="item" style="border:0;padding-bottom:0"><b>Restante</b><b class="gt">'+brl(Math.max(o.rest,0))+'</b></div></div>'+
+  (pays?'<h2>Pagamentos desta conta</h2><div class="card">'+pays+'</div>':'');
+}
+function contaForm(o){
+  if(o.rest<=0)return '<div class="note"><b>Conta quitada.</b></div>';
+  return '<form id="cf" class="card" novalidate><label for="cvalor">Valor a receber (R$)</label><input id="cvalor" type="text" inputmode="decimal" autocomplete="off" value="'+fmtIn(o.rest)+'" style="margin-bottom:14px"><label id="lm">Forma de pagamento</label><div class="chips" role="group" aria-labelledby="lm">'+
+  METHODS.map(function(m){return '<button type="button" class="chip" aria-pressed="false" data-m="'+m+'">'+m+'</button>'}).join('')+'</div><button class="submit" type="submit">Registrar pagamento</button><div class="msg" id="cmsg" role="status"></div></form>';
+}
+function contaDetalhe(){
+  var o=contasData()[viewArg];
+  if(!o){app.innerHTML=backBtn('caixa','Voltar')+'<div class="note">'+(loaded?'Conta não encontrada.':'Carregando…')+'</div>';return}
+  chosen=null;
+  app.innerHTML=backBtn('caixa','Voltar')+'<div class="center"><p class="muted">Conta fechada da mesa</p><div class="bigmesa'+(String(o.table).length>3?' long':'')+'">'+esc(o.table)+'</div><p class="muted">Fechada às '+hm(o.closedAt)+'</p></div><div id="cinfo">'+contaBody(o)+'</div><div id="cform" style="margin-top:14px">'+contaForm(o)+'</div>';
+}
+function updConta(){
+  var o=contasData()[viewArg],i=document.getElementById('cinfo');if(!o||!i)return;
+  i.innerHTML=contaBody(o);
+  var f=document.getElementById('cform'),has=!!document.getElementById('cf');
+  if(f&&((o.rest<=0&&has)||(o.rest>0&&!has)))f.innerHTML=contaForm(o);
+}
+function refreshContas(){
+  if(view==='caixa'){var el=document.getElementById('contas');if(el)el.innerHTML=contasHtml()}
+  else if(view==='conta'){if(!document.getElementById('cinfo'))contaDetalhe();else updConta()}
+}
+async function payConta(ev){
+  var o=contasData()[viewArg],msg=document.getElementById('cmsg'),b=ev.target.querySelector('.submit');
+  function fail(s){msg.className='msg err';msg.textContent=s}
+  if(!o)return fail('Conta não encontrada.');
+  var v=parseValue(document.getElementById('cvalor').value);
+  if(!chosen)return fail('Escolha a forma de pagamento.');
+  if(v===null)return fail('Informe um valor maior que zero, como 45,50.');
+  if(v>o.rest+0.004)return fail('O valor é maior que o restante ('+brl(o.rest)+'). Para valores extras, use Pagamento avulso.');
+  if(!db)return fail('Sem conexão com o armazenamento compartilhado.');
+  b.disabled=true;var m=chosen;
+  try{
+    await db.collection('pagamentos').add({night:nightId,table:o.table,method:m,value:v,ts:Date.now(),conta:o.id});
+    var left=r2(o.rest-v);
+    if(left<=0){toast('Conta da mesa '+o.table+' quitada · '+m+' '+brl(v));location.hash='#/caixa'}
+    else{toast('Pagamento registrado · restante '+brl(left));chosen=null;document.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed','false')});var cv=document.getElementById('cvalor');if(cv)cv.value=fmtIn(left);msg.textContent=''}
+  }catch(e){fail('Não foi possível registrar. Tente de novo.')}
+  b.disabled=false;
+}
 function render(){
   var p=location.hash.replace('#/','').split('/');
-  view=['caixa','pagamentos','historico','analise','noite','pedidos','mesas','cardapio','estoque'].indexOf(p[0])>-1?p[0]:'';
+  view=['caixa','pagamentos','historico','analise','noite','pedidos','mesas','cardapio','estoque','conta'].indexOf(p[0])>-1?p[0]:'';
   viewArg=decodeURIComponent(p[1]||'');
   if(authState!=='ok'){authView();return}
   if(role==='garcom'&&view!==''&&view!=='pedidos'&&view!=='mesas'){view='';history.replaceState(null,'','#/')}
   if(view!=='noite'&&unsubDet){unsubDet();unsubDet=null;detId=''}
-  if(view==='caixa')caixa();else if(view==='pagamentos')pagamentos();else if(view==='historico')historico();else if(view==='analise')analise();else if(view==='noite')noiteView();else if(view==='pedidos')pedidos();else if(view==='mesas')mesas();else if(view==='cardapio')cardapio();else if(view==='estoque')estoque();else home();
+  if(view==='caixa')caixa();else if(view==='pagamentos')pagamentos();else if(view==='historico')historico();else if(view==='analise')analise();else if(view==='noite')noiteView();else if(view==='pedidos')pedidos();else if(view==='mesas')mesas();else if(view==='cardapio')cardapio();else if(view==='estoque')estoque();else if(view==='conta')contaDetalhe();else home();
   document.querySelectorAll('.fab').forEach(function(f){f.setAttribute('aria-current',(view===f.getAttribute('data-go')||(view==='noite'&&f.getAttribute('data-go')==='historico'))?'page':'false')});
 }
 function route(){render();window.scrollTo(0,0)}
@@ -600,9 +668,9 @@ function subscribePayments(id){
   if(unsubPay)unsubPay();
   nightId=id;loaded=false;payments=[];
   unsubPay=db.collection('pagamentos').where('night','==',id).onSnapshot(function(snap){
-    payments=snap.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,method:x.method,value:Number(x.value)||0,ts:x.ts||0}})
+    payments=snap.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,method:x.method,value:Number(x.value)||0,conta:x.conta||'',ts:x.ts||0}})
       .sort(function(a,b){return b.ts-a.ts});
-    loaded=true;if(view==='pagamentos')pagamentos();else if(view==='historico'||view==='analise')render();
+    loaded=true;if(view==='pagamentos')pagamentos();else if(view==='historico'||view==='analise')render();else refreshContas();
   },function(){dbState='off';loaded=true;route()});
 }
 var authState=(window.CAIXA_MODE==='firestore')?'loading':'ok',role='caixa',userName='',myUid='',users=[],started=false;
@@ -694,6 +762,7 @@ document.addEventListener('click',async function(ev){
 document.addEventListener('submit',async function(ev){
   ev.preventDefault();
   if(ev.target.id==='lf'){doLogin(ev);return}
+  if(ev.target.id==='cf'){payConta(ev);return}
   var mesa=document.getElementById('mesa'),valor=document.getElementById('valor'),msg=document.getElementById('msg'),btn=ev.target.querySelector('.submit');
   var t=mesa.value.trim(),v=parseValue(valor.value);
   function fail(s,el){msg.className='msg err';msg.textContent=s;if(el)el.focus()}
