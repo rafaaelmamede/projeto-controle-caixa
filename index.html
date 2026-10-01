@@ -110,6 +110,17 @@ body[data-mode="local"] #fabout{display:none}
 .gt{font-size:1.5rem}
 .rb .rr{text-align:right;flex:none}
 .sndrow{display:flex;justify-content:space-between;align-items:center;gap:10px}.sndrow small{display:block;color:var(--muted)}.sndbtns{display:flex;flex-direction:column;align-items:flex-end}
+.big.spread{display:flex;justify-content:space-between;align-items:center}
+.cnt{min-width:32px;padding:2px 11px;border-radius:99px;background:var(--accent);color:var(--on-accent);font-size:1.05rem;text-align:center}.cnt.zero{background:transparent;border:1.5px solid var(--accent);color:var(--accent)}
+.modal{position:fixed;inset:0;z-index:30;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,48,112,.45)}.modal[hidden]{display:none}
+.sheet{width:100%;max-width:640px;max-height:86vh;overflow:auto;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px));border-radius:20px 20px 0 0;background:var(--bg);box-shadow:0 -8px 30px rgba(0,48,112,.3)}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}.sheet-head b{font-size:1.3rem;color:var(--accent)}.sheet .seg{margin-top:6px}
+@media (min-width:700px){.modal{align-items:center}.sheet{border-radius:20px;max-height:80vh}}
+body.modal-open{overflow:hidden}
+.toast{z-index:40}
+.topact{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+.act{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:14px;border:1.5px solid var(--accent);border-radius:14px;background:var(--field);color:var(--accent);font-weight:800;font-size:1.05rem;text-align:left;line-height:1.2}
+.seg[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -120,6 +131,7 @@ body[data-mode="local"] #fabout{display:none}
 <button class="fab" data-go="analise" aria-label="Análise semanal"><span class="lab">Análise semanal</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20V11M12 20V4M19 20v-6"/></svg></button>
 <button class="fab" id="fabout" data-out="1" aria-label="Sair"><span class="lab">Sair</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button>
 </nav>
+<div class="modal" id="cmodal" hidden role="dialog" aria-modal="true" aria-labelledby="cmt"><div class="sheet"><div class="sheet-head"><b id="cmt">Contas</b><button class="link" data-contas="close">Fechar</button></div><div class="seg" id="ctabs"></div><div id="cbody"></div></div></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script>
 /* CONFIGURAÇÃO DO ARMAZENAMENTO
@@ -247,7 +259,7 @@ function caixa(){
   : dbState==='off'?offlineNote()
   : '<div class="note">Você tem acesso somente para consulta. Peça permissão de colaborador para registrar pagamentos.</div>';
   app.innerHTML='<div class="top"><button class="link" data-go="">Voltar</button></div>'+
-  '<div class="brand"><div class="logo"><img src="'+LOGO+'" alt="Tri Lanches"></div><div><h1>Controle de caixa</h1><p class="muted">Registre o que o garçom informar.</p></div></div>'+'<h2 style="margin-top:22px">Contas a receber</h2><div id="contas">'+contasHtml()+'</div><h2>Pagamento avulso</h2>'+form+
+  '<div class="brand"><div class="logo"><img src="'+LOGO+'" alt="Tri Lanches"></div><div><h1>Controle de caixa</h1><p class="muted">Registre o que o garçom informar.</p></div></div>'+'<div class="topact"><button class="act" data-contas="fechar">Fechar conta<span class="cnt'+(mesasCount()?'':' zero')+'" id="fbadge">'+mesasCount()+'</span></button><button class="act" id="cbtn" data-contas="open">Contas a receber<span class="cnt'+(pendCount()?'':' zero')+'" id="cbadge">'+pendCount()+'</span></button></div><h2 style="margin-top:24px">Pagamento avulso</h2>'+form+
   '<button class="big alt" data-go="pagamentos">Pagamentos da noite</button>';
   var m=document.getElementById('mesa');if(m)m.focus();
 }
@@ -436,8 +448,8 @@ function mesaDetalhe(){
   (role==='caixa'?'<button class="submit" id="fechar" data-label="Fechar conta" style="margin-top:14px">Fechar conta</button><p class="muted" style="margin-top:8px">Encerra a conta e tira a mesa da lista. Os itens ficam guardados.</p><div class="msg" id="fmsg" role="alert"></div>':'<p class="muted" style="margin-top:12px">Só o caixa pode fechar a conta.</p>')+
   '<button class="big alt" data-newmesa="'+esc(o.table)+'">Adicionar itens a esta mesa</button>';
 }
-async function closeAccount(b){
-  var o=mesaData()[viewArg];if(!o||!db)return;
+async function closeAccount(b,key){
+  var o=mesaData()[key||viewArg];if(!o||!db)return;
   b.disabled=true;var ts=Date.now(),cid='c'+ts;
   try{
     await Promise.all(o.lines.map(function(l){return db.doc('itens/'+l.id).update({closed:true,closedAt:ts,conta:cid})}));
@@ -628,14 +640,47 @@ function contasData(){
   Object.keys(C).forEach(function(k){C[k].rest=r2(C[k].tot-C[k].pago)});
   return C;
 }
-function contasHtml(){
+var cOpen=false,cTab='pend',cFocus=null;
+var cMode='contas',fmSel='';
+function mesasCount(){return Object.keys(mesaData()).length}
+function fecharBody(){
+  var M=mesaData(),ks=Object.keys(M).map(function(k){return M[k]}).sort(function(a,b){return String(a.table).localeCompare(String(b.table),'pt-BR',{numeric:true})});
+  if(fmSel&&M[fmSel]){
+    var o=M[fmSel],its=o.lines.map(function(l){return '<div class="item"><div><b>'+l.qty+'× '+esc(l.name)+'</b><small>'+(l.by?esc(l.by)+' · ':'')+(l.obs?esc(l.obs)+' · ':'')+hm(l.ts)+'</small></div><b>'+brl(r2(l.price*l.qty))+'</b></div>'}).join('');
+    return '<button class="link" data-fmback="1">← Outras mesas</button><div class="center"><p class="muted">Conta da mesa</p><div class="bigmesa'+(String(o.table).length>3?' long':'')+'" style="font-size:'+(String(o.table).length>3?'2.4rem':'3.4rem')+'">'+esc(o.table)+'</div></div><div class="card" style="margin-top:10px">'+its+'<div class="item"><b>Total da conta</b><b class="gt">'+brl(o.tot)+'</b></div></div><button class="submit" data-fmclose="'+esc(o.key)+'" data-label="Fechar conta" style="margin-top:12px">Fechar conta</button><p class="muted" style="margin-top:8px">Encerra a conta e leva você ao pagamento.</p><div class="msg" id="fmsg" role="alert"></div>';
+  }
+  fmSel='';
+  return ks.length?'<p class="muted" style="margin:10px 0 8px">Escolha a mesa para fechar a conta.</p><div class="card">'+ks.map(function(o){return '<button class="rb" data-fm="'+esc(o.key)+'"><span><b>Mesa '+esc(o.table)+'</b><small>'+plural(o.qty,'item','itens')+'</small></span><b>'+brl(o.tot)+'</b></button>'}).join('')+'</div>':'<div class="note" style="margin-top:12px">Nenhuma mesa aberta no momento.</div>';
+}
+function pendCount(){var C=contasData();return Object.keys(C).filter(function(k){return C[k].rest>0}).length}
+function crow(o){return '<button class="rb" data-go="conta/'+encodeURIComponent(o.id)+'"><span><b>Mesa '+esc(o.table)+'</b><small>Fechada às '+hm(o.closedAt)+(o.rest>0&&o.pago>0?' · pago '+brl(o.pago):'')+'</small></span><span class="rr"><b>'+brl(o.rest>0?o.rest:o.tot)+'</b><small>'+(o.rest>0?'a receber':'quitada')+'</small></span></button>'}
+function modalBody(){
+  var tt=document.getElementById('cmt'),tb=document.getElementById('ctabs');
+  if(cMode==='fechar'){tt.textContent='Fechar conta';tb.hidden=true;document.getElementById('cbody').innerHTML=fecharBody();return}
+  tt.textContent='Contas';tb.hidden=false;
   var C=contasData(),a=Object.keys(C).map(function(k){return C[k]});
   var pend=a.filter(function(o){return o.rest>0}).sort(function(x,y){return x.closedAt-y.closedAt}),paid=a.filter(function(o){return o.rest<=0}).sort(function(x,y){return y.closedAt-x.closedAt});
-  function row(o){return '<button class="rb" data-go="conta/'+encodeURIComponent(o.id)+'"><span><b>Mesa '+esc(o.table)+'</b><small>Fechada às '+hm(o.closedAt)+(o.rest>0&&o.pago>0?' · pago '+brl(o.pago):'')+'</small></span><span class="rr"><b>'+brl(o.rest>0?o.rest:o.tot)+'</b><small>'+(o.rest>0?'a receber':'quitada')+'</small></span></button>'}
-  var h=pend.length?'<div class="card">'+pend.map(row).join('')+'</div>':'<div class="note">Nenhuma conta fechada aguardando pagamento.</div>';
-  if(paid.length)h+='<h2>Quitadas nesta noite</h2><div class="card">'+paid.map(row).join('')+'</div>';
-  return h;
+  document.getElementById('ctabs').innerHTML='<button data-ctab="pend" aria-current="'+(cTab==='pend'?'page':'false')+'">A receber ('+pend.length+')</button><button data-ctab="paid" aria-current="'+(cTab==='paid'?'page':'false')+'">Quitadas ('+paid.length+')</button>';
+  var list=cTab==='pend'?pend:paid,sum=list.reduce(function(t,o){return r2(t+(cTab==='pend'?o.rest:o.pago))},0);
+  document.getElementById('cbody').innerHTML=list.length?'<p class="muted" style="margin:12px 0 8px">'+(cTab==='pend'?'Total a receber':'Total recebido')+': <b>'+brl(sum)+'</b></p><div class="card">'+list.map(crow).join('')+'</div>'
+    :'<div class="note" style="margin-top:12px">'+(cTab==='pend'?'Nenhuma conta aguardando pagamento.':'Nenhuma conta quitada nesta noite ainda.')+'</div>';
 }
+function openContas(mode){cMode=mode||'contas';if(cMode==='contas')cTab='pend';var m=document.getElementById('cmodal');if(!m)return;cFocus=document.activeElement;cOpen=true;modalBody();m.hidden=false;document.body.classList.add('modal-open');var c=m.querySelector('[data-contas="close"]');if(c)c.focus()}
+function closeContas(){var m=document.getElementById('cmodal');cOpen=false;if(m)m.hidden=true;document.body.classList.remove('modal-open');if(cFocus&&cFocus.isConnected&&cFocus.focus)cFocus.focus();cFocus=null}
+function handleCx(b){
+  var d=b.dataset;
+  if(d.contas==='open'){openContas('contas');return true}
+  if(d.contas==='fechar'){fmSel='';openContas('fechar');return true}
+  if(d.fm!==undefined){fmSel=d.fm;modalBody();return true}
+  if(d.fmback){fmSel='';modalBody();return true}
+  if(d.fmclose){if(arm(b))return true;closeAccount(b,d.fmclose);return true}
+  if(d.contas==='close'){closeContas();return true}
+  if(d.ctab){cTab=d.ctab;modalBody();return true}
+  return false;
+}
+document.addEventListener('click',function(ev){if(ev.target.id==='cmodal')closeContas()});
+document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&cOpen)closeContas()});
+window.addEventListener('hashchange',function(){if(cOpen)closeContas()});
 function novaNoiteAviso(){
   var a=Object.keys(mesaData()).length,C=contasData(),b=Object.keys(C).filter(function(k){return C[k].rest>0}).length,p=[];
   if(a)p.push(plural(a,'mesa aberta','mesas abertas'));
@@ -667,7 +712,7 @@ function updConta(){
   if(f&&((o.rest<=0&&has)||(o.rest>0&&!has)))f.innerHTML=contaForm(o);
 }
 function refreshContas(){
-  if(view==='caixa'){var el=document.getElementById('contas');if(el)el.innerHTML=contasHtml()}
+  if(view==='caixa'){var bg=document.getElementById('cbadge');if(bg){var n=pendCount();bg.textContent=n;bg.className='cnt'+(n?'':' zero')}var fb=document.getElementById('fbadge');if(fb){var m=mesasCount();fb.textContent=m;fb.className='cnt'+(m?'':' zero')}if(cOpen)modalBody()}
   else if(view==='conta'){if(!document.getElementById('cinfo'))contaDetalhe();else updConta()}
 }
 async function payConta(ev){
@@ -777,7 +822,7 @@ document.addEventListener('click',async function(ev){
     document.querySelectorAll('.fab.open').forEach(function(x){x.classList.remove('open')});
     b.classList.add('open');setTimeout(function(){b.classList.remove('open')},3500);return}
   if(b.hasAttribute('data-go')){document.querySelectorAll('.fab.open').forEach(function(x){x.classList.remove('open')});location.hash='#/'+b.getAttribute('data-go');return}
-  if(handlePed(b)||handleStock(b)||handleAuth(b)||handleSnd(b))return;
+  if(handlePed(b)||handleStock(b)||handleAuth(b)||handleSnd(b)||handleCx(b))return;
   if(b.dataset.m){chosen=b.dataset.m;document.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed',c===b?'true':'false')});return}
   if(b.hasAttribute('data-rm')||b.id==='reset'){
     if(!b.hasAttribute('data-armed')){
