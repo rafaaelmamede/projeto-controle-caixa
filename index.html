@@ -134,6 +134,10 @@ body.modal-open{overflow:hidden}
 .sw[aria-checked="true"] .sw-l{left:13px;color:#fff}.sw[aria-checked="false"] .sw-l{right:11px;color:var(--accent)}
 .sndrow{padding:10px 16px}.sndic{display:flex;align-items:center;padding:6px;border:0;background:none;color:var(--accent)}.sndic svg{width:32px;height:32px}
 .tile.free{background:var(--field);color:var(--accent);border:1.5px solid var(--accent);box-shadow:none}.tile.free .tl{background:rgba(0,48,112,.35)}.tile.free .tt{font-weight:600;font-size:.9rem}
+.tile{font-weight:700;color:#fff}.tile .tn{font-weight:800}.tile .tt{font-weight:700;color:#fff}
+.tile.free{background:#33639F;color:#fff;border:0;box-shadow:0 3px 8px rgba(0,48,112,.22)}
+.tile.free .tl{background:rgba(255,255,255,.6)}.tile.free .tt{font-weight:700;font-size:.95rem}
+.tile.add{background:#33639F;border:2px dashed rgba(255,255,255,.85);box-shadow:none}.tile.add .tn{font-size:2.3rem}
 </style>
 </head>
 <body>
@@ -365,25 +369,26 @@ function analise(){
   var best=cw.slice().sort(function(a,b){return b.total-a.total})[0],worst=cw.slice().sort(function(a,b){return a.total-b.total})[0];
   function st(l,val,cls){return '<div class="card"><p class="muted">'+l+'</p><b'+(cls?' class="'+cls+'"':'')+'>'+val+'</b></div>'}
   var cards=nw?st('Média semanal',brl(mu))+st('Mediana semanal',brl(med))+
-    st('Melhor semana',brl(best.total)+'<small class="muted"> '+fd2(best.start)+'</small>')+st('Pior semana',brl(worst.total)+'<small class="muted"> '+fd2(worst.start)+'</small>')+
+    st('Melhor semana',brl(best.total)+'<small class="muted"> '+fd2(best.start+864e5)+'</small>')+st('Pior semana',brl(worst.total)+'<small class="muted"> '+fd2(worst.start+864e5)+'</small>')+
     (nw>1?st('Desvio padrão',brl(sd))+st('Variação (CV)',mu?pct(sd/mu):'-'):'')+
     (nw>=3?st('Tendência',(slope>=0?'+':'-')+brl(Math.abs(slope))+'/semana',slope>=0?'up':'down'):''):'';
   var max=Math.max.apply(null,weeks.map(function(w){return w.total}).concat([1]));
   var wrows=weeks.slice().reverse().map(function(w){
     var i=weeks.indexOf(w),pv=weeks[i-1],chg=pv&&w.start<cur&&pv.total>0?(w.total-pv.total)/pv.total:null;
-    return '<div class="method"><div><span><b>'+fd2(w.start)+' a '+fd2(w.start+6*864e5)+'</b>'+(w.start===cur?'<span class="tag">em andamento</span>':'')+'</span><b>'+brl(w.total)+'</b></div>'+
+    return '<div class="method"><div><span><b>'+fd2(w.start+864e5)+' a '+fd2(w.start+6*864e5)+'</b>'+(w.start===cur?'<span class="tag">em andamento</span>':'')+'</span><b>'+brl(w.total)+'</b></div>'+
     '<div class="bar"><i style="width:'+Math.round(w.total/max*100)+'%"></i></div><small class="muted">'+plural(w.nights,'noite')+' · média '+brl(w.total/w.nights)+'/noite · ticket médio '+brl(w.count?w.total/w.count:0)+
     (chg!==null?' · <span class="'+(chg>=0?'up':'down')+'">'+(chg>=0?'+':'')+pct(chg)+'</span> vs. anterior':'')+'</small></div>';
   }).join('');
-  var av=[1,2,3,4,5,6,0].map(function(d){return {d:d,a:DN[d]?DW[d]/DN[d]:0,n:DN[d]}}),am=Math.max.apply(null,av.map(function(x){return x.a}).concat([1]));
+  var av=[2,3,4,5,6,0].map(function(d){return {d:d,a:DN[d]?DW[d]/DN[d]:0,n:DN[d]}}),am=Math.max.apply(null,av.map(function(x){return x.a}).concat([1]));
   var bestD=av.slice().sort(function(a,b){return b.a-a.a})[0];
   var drows=av.map(function(x){return '<div class="method"><div><span>'+DOW[x.d]+(x.n?' · '+plural(x.n,'noite'):'')+'</span><b>'+brl(x.a)+'</b></div><div class="bar"><i style="width:'+Math.round(x.a/am*100)+'%"></i></div></div>'}).join('');
   var tt=MT.reduce(function(a,b){return a+b},0);
-  app.innerHTML=backBtn('','Voltar')+'<h1>Análise semanal</h1><p class="muted">Semanas de segunda a domingo, pela data de início de cada noite.</p>'+offlineNote()+
+  app.innerHTML=backBtn('','Voltar')+'<h1>Análise semanal</h1><p class="muted">Semanas de terça a domingo (a segunda-feira é fechada), pela data de início de cada noite.</p>'+offlineNote()+
   (!ns.length?'<div class="note">'+(loadedN?'Ainda não há noites arquivadas. Use Começar nova noite ao fechar o caixa.':'Carregando…')+'</div>':
   '<h2>Resumo das semanas completas</h2>'+(nw?'<div class="stats">'+cards+'</div><p class="muted" style="margin-top:8px">A semana em andamento fica fora destes cálculos.'+(nw<3?' A tendência aparece com 3 semanas completas.':'')+'</p>':'<div class="note">Os cálculos aparecem quando houver ao menos uma semana completa.</div>')+
   '<h2>Total por semana</h2><div class="card">'+wrows+'</div>'+
   '<h2>Média por dia da semana</h2><div class="card">'+drows+'</div>'+(bestD.a?'<p class="muted" style="margin-top:8px">Melhor dia em média: '+DOW[bestD.d]+'.</p>':'')+
+  (DN[1]?'<p class="muted" style="margin-top:8px">Há '+plural(DN[1],'noite','noites')+' de segunda-feira ('+brl(DW[1])+') nos totais semanais, mas fora deste gráfico.</p>':'')+
   '<h2>Formas de pagamento (todo o período)</h2><div class="card">'+methodRows(MT,tt)+'</div>');
 }
 var CATS={F:'Fast food',T:'Tira-gosto',B:'Bebidas'},CATL=['Fast food','Tira-gosto','Bebidas'];
@@ -404,22 +409,43 @@ function mesaData(){
 }
 var cartMesa='',seenC=null;
 function mesaLabel(t){return /^viagem/i.test(String(t))?String(t):'Mesa '+t}
+var extraMesas=[],pedCliente='';
+function numSort(a,b){return String(a).localeCompare(String(b),'pt-BR',{numeric:true})}
+function allMesasList(){var a=[];for(var i=1;i<=11;i++)a.push(String(i));extraMesas.slice().sort(numSort).forEach(function(m){a.push(m)});return a}
+function saveMesas(){if(!db)return;try{db.doc('config/mesas').set({json:JSON.stringify(extraMesas)})}catch(e){}}
 function pedGrid(){
   var M=mesaData(),used={};
   function tile(val,o){
     return o?'<button class="tile" data-pm="'+esc(val)+'" aria-label="Mesa '+esc(val)+' ocupada, total '+brl(o.tot)+'"><span class="tn'+(String(val).length>3?' long':'')+'">'+esc(val)+'</span><span class="tl"></span><span class="tt">'+brl(o.tot)+'</span></button>'
-    :'<button class="tile free" data-pm="'+esc(val)+'" aria-label="Mesa '+esc(val)+' livre"><span class="tn">'+esc(val)+'</span><span class="tl"></span><span class="tt">livre</span></button>';
+    :'<button class="tile free" data-pm="'+esc(val)+'" aria-label="Mesa '+esc(val)+' livre"><span class="tn'+(String(val).length>3?' long':'')+'">'+esc(val)+'</span><span class="tl"></span><span class="tt">livre</span></button>';
   }
   var h='<button class="tile free" data-pm="Viagem" aria-label="Pedido para viagem"><span class="tn long">Viagem</span><span class="tl"></span><span class="tt">novo pedido</span></button>';
-  for(var i=1;i<=11;i++){used[String(i)]=1;h+=tile(String(i),M[String(i)])}
-  Object.keys(M).filter(function(k){return !used[k]}).sort(function(a,b){return String(a).localeCompare(String(b),'pt-BR',{numeric:true})}).forEach(function(k){h+=tile(M[k].table,M[k])});
-  return h;
+  allMesasList().forEach(function(v){used[mkey(v)]=1;h+=tile(v,M[mkey(v)])});
+  Object.keys(M).filter(function(k){return !used[k]}).sort(numSort).forEach(function(k){h+=tile(M[k].table,M[k])});
+  return h+'<button class="tile add" data-contas="mesa" aria-label="Adicionar mesa"><span class="tn">+</span><span class="tl"></span><span class="tt">Mesa</span></button>';
+}
+function mesaModalBody(){
+  var ex=extraMesas.slice().sort(numSort);
+  return '<p class="muted" style="margin:10px 0 8px">Informe o número ou o nome da nova mesa. As mesas 1 a 11 já existem.</p><input id="nmesa" type="text" autocomplete="off" maxlength="14" placeholder="Ex.: 12 ou Varanda" aria-label="Nova mesa"><button class="submit" data-addmesa="1" style="margin-top:12px">Adicionar mesa</button><div class="msg" id="mmsg" role="status"></div>'+
+  (ex.length?'<h2 style="margin-top:16px">Mesas adicionadas</h2><div class="card">'+ex.map(function(m){return '<div class="item"><b>Mesa '+esc(m)+'</b>'+(role==='caixa'?'<button class="rm" data-rmmesa="'+esc(m)+'" data-label="Remover">Remover</button>':'')+'</div>'}).join('')+'</div>':'');
+}
+function addMesa(){
+  var i=document.getElementById('nmesa'),m=document.getElementById('mmsg'),v=String(i.value||'').trim().replace(/\s+/g,' ');
+  function fail(t){m.className='msg err';m.textContent=t;i.focus()}
+  if(!v)return fail('Informe o número ou o nome da mesa.');
+  if(/^viagem/i.test(v))return fail('"Viagem" já existe e não é uma mesa.');
+  var k=mkey(v);
+  if(allMesasList().some(function(x){return mkey(x)===k}))return fail('Essa mesa já existe.');
+  extraMesas.push(v);saveMesas();
+  if(view==='pedidos'&&!pedMesa)updPedLive();
+  modalBody();var m2=document.getElementById('mmsg');if(m2){m2.className='msg ok';m2.textContent='Mesa '+v+' adicionada.'}
+  var i2=document.getElementById('nmesa');if(i2)i2.focus();
 }
 function pedHead(){
   var isV=pedMesa==='Viagem',o=isV?null:mesaData()[mkey(pedMesa)],lab=role==='caixa'?'Fechar conta':'Enviar mesa para o caixa',lg=String(pedMesa).length>3;
   return '<button class="link" data-pback="1">← Trocar mesa</button><div class="center"><p class="muted">'+(isV?'Pedido para viagem':'Lançando na mesa')+'</p><div class="bigmesa'+(lg?' long':'')+'" style="font-size:'+(lg?'2.6rem':'3.6rem')+'">'+esc(pedMesa)+'</div>'+
   (o?'<p class="muted">Conta atual: <b>'+brl(o.tot)+'</b> · '+plural(o.qty,'item','itens')+'</p>':(isV?'<p class="muted">Cada pedido de viagem é separado.</p>':'<p class="muted">Mesa livre</p>'))+'</div>'+
-  (o?'<button class="big alt" id="penviar" data-label="'+lab+'" style="margin:12px 0 4px;font-size:1.05rem;padding:14px">'+lab+'</button>'+(role==='caixa'?'':'<p class="muted" style="text-align:center;margin-bottom:4px">Libera a mesa para novos clientes. O caixa recebe depois.</p>')+'<div class="msg" id="fmsg" role="alert"></div>':'');
+  (isV?'<label for="pcli" style="margin-top:12px">Nome do cliente</label><input id="pcli" type="text" autocomplete="off" maxlength="30" placeholder="Quem vai retirar o pedido" value="'+esc(pedCliente)+'">':'')+(o?'<button class="big alt" id="penviar" data-label="'+lab+'" style="margin:12px 0 4px;font-size:1.05rem;padding:14px">'+lab+'</button>'+(role==='caixa'?'':'<p class="muted" style="text-align:center;margin-bottom:4px">Libera a mesa para novos clientes. O caixa recebe depois.</p>')+'<div class="msg" id="fmsg" role="alert"></div>':'');
 }
 function pedidos(){
   if(!pedMesa){
@@ -433,6 +459,7 @@ function pedidos(){
 function updPedLive(){
   var g=document.getElementById('pgrid');
   if(!pedMesa){if(g)g.innerHTML=pedGrid();return}
+  if(pedMesa==='Viagem')return;
   var h=document.getElementById('phead');if(h)h.innerHTML=pedHead();
 }
 async function sendOrder(b){
@@ -440,13 +467,15 @@ async function sendOrder(b){
   function fail(s){msg.className='msg err';msg.textContent=s}
   if(!mesa)return fail('Escolha a mesa.');
   if(!cart.length)return fail('Adicione ao menos um item.');
+  var cli=String(pedCliente||'').trim();
+  if(mesa==='Viagem'&&!cli){fail('Informe o nome do cliente.');var ci=document.getElementById('pcli');if(ci)ci.focus();return}
   if(!db)return fail('Sem conexão com o armazenamento compartilhado.');
   b.disabled=true;
   var ts=Date.now(),tot=0,table=mesa,extra={};
   if(mesa==='Viagem'){
     var seq={};lines.forEach(function(l){if(l.viagem&&l.conta)seq[l.conta]=1});
     table='Viagem '+(Object.keys(seq).length+1);
-    extra={closed:true,closedAt:ts,conta:'c'+ts,closedBy:userName||'',viagem:true};
+    extra={closed:true,closedAt:ts,conta:'c'+ts,closedBy:userName||'',viagem:true,cliente:cli};
   }
   try{
     await Promise.all(cart.map(function(c,i){
@@ -455,8 +484,8 @@ async function sendOrder(b){
       Object.keys(extra).forEach(function(k){d[k]=extra[k]});
       return db.collection('itens').add(d);
     }));
-    cart=[];cartMesa='';pedMesa='';
-    toast('Pedido enviado · '+mesaLabel(table)+' · '+brl(r2(tot)),2500);
+    cart=[];cartMesa='';pedMesa='';pedCliente='';
+    toast('Pedido enviado · '+mesaLabel(table)+(cli&&mesa==='Viagem'?' · '+cli:'')+' · '+brl(r2(tot)),2800);
     pedidos();
   }catch(e){fail('Não foi possível enviar. Tente de novo.')}
   b.disabled=false;
@@ -485,7 +514,7 @@ function notifyNew(){
   if(!fresh.length&&!sent.length)return;
   var parts=[];
   if(fresh.length){
-    var ns=[],q=0;fresh.forEach(function(l){var n=/^viagem/i.test(String(l.table))?String(l.table):'mesa '+l.table;if(ns.indexOf(n)<0)ns.push(n);q+=l.qty});
+    var ns=[],q=0;fresh.forEach(function(l){var n=/^viagem/i.test(String(l.table))?String(l.table)+(l.cliente?' · '+l.cliente:''):'mesa '+l.table;if(ns.indexOf(n)<0)ns.push(n);q+=l.qty});
     parts.push((ns.length===1?'Novo pedido · ':'Novos pedidos · ')+ns.join(', ')+' ('+plural(q,'item','itens')+')');
   }
   if(sent.length){
@@ -496,7 +525,7 @@ function notifyNew(){
   toast(parts.join(' · ')+(soundOn&&!ok?' · toque na tela para ativar o som':''),4500);
   if(soundOn){try{if(navigator.vibrate)navigator.vibrate([180,90,180])}catch(x){}}
 }
-function crow(o){var how=o.viagem?'Pedido às ':(o.by==='Salão'?'Enviada pelo salão às ':'Fechada às ');return '<button class="rb" data-go="conta/'+encodeURIComponent(o.id)+'"><span><b>'+esc(mesaLabel(o.table))+'</b><small>'+how+hm(o.closedAt)+(o.rest>0&&o.pago>0?' · pago '+brl(o.pago):'')+'</small></span><span class="rr"><b>'+brl(o.rest>0?o.rest:o.tot)+'</b><small>'+(o.rest>0?'a receber':'quitada')+'</small></span></button>'}
+function crow(o){var how=o.viagem?'Pedido às ':(o.by==='Salão'?'Enviada pelo salão às ':'Fechada às ');return '<button class="rb" data-go="conta/'+encodeURIComponent(o.id)+'"><span><b>'+esc(mesaLabel(o.label||o.table))+'</b><small>'+how+hm(o.closedAt)+(o.rest>0&&o.pago>0?' · pago '+brl(o.pago):'')+'</small></span><span class="rr"><b>'+brl(o.rest>0?o.rest:o.tot)+'</b><small>'+(o.rest>0?'a receber':'quitada')+'</small></span></button>'}
 function updItems(){
   var pc=document.getElementById('pcats'),pi=document.getElementById('pitems');if(!pc||!pi)return;
   pc.innerHTML=CATL.map(function(c){return '<button type="button" class="chip" data-pc="'+c+'" aria-pressed="'+(c===pedCat)+'">'+c+'</button>'}).join('');
@@ -552,7 +581,7 @@ function addMenuItem(){
 function subscribeLines(id){
   if(unsubL&&subL===id)return;if(unsubL)unsubL();subL=id;lines=[];seenL=null;seenC=null;
   unsubL=db.collection('itens').where('night','==',id).onSnapshot(function(sn){
-    lines=sn.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,name:x.name,price:Number(x.price)||0,qty:Number(x.qty)||1,obs:x.obs||'',by:x.by||'',closed:!!x.closed,conta:x.conta||'',closedAt:x.closedAt||0,closedBy:x.closedBy||'',viagem:!!x.viagem,ts:x.ts||0}}).sort(function(a,b){return a.ts-b.ts});
+    lines=sn.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,name:x.name,price:Number(x.price)||0,qty:Number(x.qty)||1,obs:x.obs||'',by:x.by||'',closed:!!x.closed,conta:x.conta||'',closedAt:x.closedAt||0,closedBy:x.closedBy||'',viagem:!!x.viagem,cliente:x.cliente||'',ts:x.ts||0}}).sort(function(a,b){return a.ts-b.ts});
     notifyNew();
     if(view==='mesas')mesas();else if(view==='pedidos')updPedLive();else refreshContas();
   },function(){});
@@ -604,7 +633,7 @@ function handlePed(b){
 }
 document.addEventListener('input',function(ev){
   var t=ev.target,d=t.dataset||{};
-  if(t.id==='pmesa')pedMesa=t.value;else if(t.id==='sq')stQty=t.value;else if(t.id==='sn')stNote=t.value;else if(t.id==='msq'){mSearch=t.value;var mg=document.getElementById('mgrid');if(mg)mg.innerHTML=gridHtml()}else if(t.id==='fsq'){fSearch=t.value;var fg=document.getElementById('fgrid');if(fg)fg.innerHTML=fGrid()}else if(t.id==='stq'){stSearch=t.value;var el=document.getElementById('stlist');if(el)el.innerHTML=stockList()}
+  if(t.id==='pmesa')pedMesa=t.value;else if(t.id==='sq')stQty=t.value;else if(t.id==='sn')stNote=t.value;else if(t.id==='pcli')pedCliente=t.value;else if(t.id==='msq'){mSearch=t.value;var mg=document.getElementById('mgrid');if(mg)mg.innerHTML=gridHtml()}else if(t.id==='fsq'){fSearch=t.value;var fg=document.getElementById('fgrid');if(fg)fg.innerHTML=fGrid()}else if(t.id==='stq'){stSearch=t.value;var el=document.getElementById('stlist');if(el)el.innerHTML=stockList()}
   else if(d.obs){var c=cart.filter(function(x){return x.id===d.obs})[0];if(c)c.obs=t.value}
 });
 document.addEventListener('change',function(ev){
@@ -708,7 +737,7 @@ function editItem(t,d){
 
 function contasData(){
   var C={};
-  lines.forEach(function(l){if(!l.closed||!l.conta)return;var o=C[l.conta]||(C[l.conta]={id:l.conta,table:l.table,closedAt:l.closedAt||0,by:l.closedBy||'',viagem:!!l.viagem,tot:0,pago:0,lines:[],pays:[]});o.tot=r2(o.tot+l.price*l.qty);o.lines.push(l)});
+  lines.forEach(function(l){if(!l.closed||!l.conta)return;var o=C[l.conta]||(C[l.conta]={id:l.conta,table:l.table,closedAt:l.closedAt||0,by:l.closedBy||'',viagem:!!l.viagem,cliente:l.cliente||'',label:(l.viagem&&l.cliente?l.table+' · '+l.cliente:l.table),tot:0,pago:0,lines:[],pays:[]});o.tot=r2(o.tot+l.price*l.qty);o.lines.push(l)});
   payments.forEach(function(p){var o=p.conta&&C[p.conta];if(o){o.pago=r2(o.pago+p.value);o.pays.push(p)}});
   Object.keys(C).forEach(function(k){C[k].rest=r2(C[k].tot-C[k].pago)});
   return C;
@@ -735,6 +764,7 @@ function fGrid(){
 function pendCount(){var C=contasData();return Object.keys(C).filter(function(k){return C[k].rest>0}).length}
 function modalBody(){
   var tt=document.getElementById('cmt'),tb=document.getElementById('ctabs');
+  if(cMode==='mesa'){tt.textContent='Adicionar mesa';tb.hidden=true;document.getElementById('cbody').innerHTML=mesaModalBody();return}
   if(cMode==='fechar'){var ae=document.activeElement&&document.activeElement.id;tt.textContent='Fechar conta';tb.hidden=true;document.getElementById('cbody').innerHTML=fecharBody();if(ae==='fsq'){var fe=document.getElementById('fsq');if(fe){fe.focus();try{fe.setSelectionRange(1e4,1e4)}catch(x){}}}return}
   tt.textContent='Contas';tb.hidden=false;
   var C=contasData(),a=Object.keys(C).map(function(k){return C[k]});
@@ -749,6 +779,9 @@ function closeContas(){var m=document.getElementById('cmodal');cOpen=false;if(m)
 function handleCx(b){
   var d=b.dataset;
   if(d.contas==='open'){openContas('contas');return true}
+  if(d.contas==='mesa'){openContas('mesa');return true}
+  if(d.addmesa){addMesa();return true}
+  if(d.rmmesa){if(arm(b))return true;extraMesas=extraMesas.filter(function(x){return x!==d.rmmesa});saveMesas();modalBody();if(view==='pedidos'&&!pedMesa)updPedLive();return true}
   if(d.contas==='fechar'){fmSel='';fSearch='';openContas('fechar');return true}
   if(d.fm!==undefined){fmSel=d.fm;modalBody();return true}
   if(d.fmback){fmSel='';modalBody();return true}
@@ -782,7 +815,7 @@ function contaDetalhe(){
   var o=contasData()[viewArg];
   if(!o){app.innerHTML=backBtn('caixa','Voltar')+'<div class="note">'+(loaded?'Conta não encontrada.':'Carregando…')+'</div>';return}
   chosen=null;
-  app.innerHTML=backBtn('caixa','Voltar')+'<div class="center"><p class="muted">'+(o.viagem?'Pedido para viagem':'Conta fechada da mesa')+'</p><div class="bigmesa'+(String(o.table).length>3?' long':'')+'">'+esc(o.table)+'</div><p class="muted">'+(o.viagem?'Pedido às ':(o.by==='Salão'?'Enviada pelo salão às ':'Fechada às '))+hm(o.closedAt)+'</p></div><div id="cinfo">'+contaBody(o)+'</div><div id="cform" style="margin-top:14px">'+contaForm(o)+'</div>';
+  app.innerHTML=backBtn('caixa','Voltar')+'<div class="center"><p class="muted">'+(o.viagem?'Pedido para viagem':'Conta fechada da mesa')+'</p><div class="bigmesa'+(String(o.table).length>3?' long':'')+'">'+esc(o.table)+'</div>'+(o.cliente?'<p class="muted"><b>Cliente: '+esc(o.cliente)+'</b></p>':'')+'<p class="muted">'+(o.viagem?'Pedido às ':(o.by==='Salão'?'Enviada pelo salão às ':'Fechada às '))+hm(o.closedAt)+'</p></div><div id="cinfo">'+contaBody(o)+'</div><div id="cform" style="margin-top:14px">'+contaForm(o)+'</div>';
 }
 function updConta(){
   var o=contasData()[viewArg],i=document.getElementById('cinfo');if(!o||!i)return;
@@ -805,9 +838,9 @@ async function payConta(ev){
   if(!db)return fail('Sem conexão com o armazenamento compartilhado.');
   b.disabled=true;var m=chosen;
   try{
-    await db.collection('pagamentos').add({night:nightId,table:o.table,method:m,value:v,ts:Date.now(),conta:o.id});
+    await db.collection('pagamentos').add({night:nightId,table:o.label||o.table,method:m,value:v,ts:Date.now(),conta:o.id});
     var left=r2(o.rest-v);
-    if(left<=0){toast(mesaLabel(o.table)+' quitada · '+m+' '+brl(v));location.hash='#/caixa'}
+    if(left<=0){toast(mesaLabel(o.label||o.table)+' quitada · '+m+' '+brl(v));location.hash='#/caixa'}
     else{toast('Pagamento registrado · restante '+brl(left));chosen=null;document.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed','false')});var cv=document.getElementById('cvalor');if(cv)cv.value=fmtIn(left);msg.textContent=''}
   }catch(e){fail('Não foi possível registrar. Tente de novo.')}
   b.disabled=false;
@@ -865,6 +898,7 @@ function startApp(){
     db.doc('config/estoque').onSnapshot(function(s){if(s.exists){var x=s.data();if(x&&x.json&&x.json!==JSON.stringify(items)){try{items=JSON.parse(x.json)}catch(e){return}if(view==='estoque'&&stTab!=='itens')estoque()}}},function(){});
     db.collection('noites').onSnapshot(function(sn){noites=sn.docs.map(function(d){var x=d.data();x.id=d.id;return x}).sort(function(a,b){return b.since-a.since});loadedN=true;if(view==='historico'||view==='analise'||view==='noite')render()},function(){loadedN=true});
   }
+  db.doc('config/mesas').onSnapshot(function(s){var l=[];if(s.exists){try{l=JSON.parse((s.data()||{}).json||'[]')}catch(e){l=[]}}l=Array.isArray(l)?l:[];var same=JSON.stringify(l)===JSON.stringify(extraMesas);extraMesas=l;if(same)return;if(view==='pedidos'&&!pedMesa)updPedLive();if(cOpen&&cMode==='mesa')modalBody()},function(){});
   db.doc('config/cardapio').onSnapshot(function(s){if(s.exists){var x=s.data();if(x&&x.json&&x.json!==JSON.stringify(menu)){try{menu=JSON.parse(x.json)}catch(e){return}if(view==='pedidos')updItems();else if(view==='cardapio')cardapio()}}},function(){});
   db.doc('config/noite').onSnapshot(function(s){
     night=s.exists?s.data():null;
