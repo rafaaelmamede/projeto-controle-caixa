@@ -138,6 +138,8 @@ body.modal-open{overflow:hidden}
 .tile.free{background:#33639F;color:#fff;border:0;box-shadow:0 3px 8px rgba(0,48,112,.22)}
 .tile.free .tl{background:rgba(255,255,255,.6)}.tile.free .tt{font-weight:700;font-size:.95rem}
 .tile.add{background:#33639F;border:2px dashed rgba(255,255,255,.85);box-shadow:none}.tile.add .tn{font-size:2.3rem}
+.tile.viag{background:#33639F}.tile.viag .tn{font-size:1.15rem;white-space:nowrap}.tile .tc{max-width:92%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:.82rem;font-weight:600;color:#fff}
+.mgrid{grid-template-columns:repeat(3,minmax(0,1fr))}.tile{min-width:0}
 </style>
 </head>
 <body>
@@ -541,12 +543,35 @@ function updCart(){
   '<div class="item"><b>Total</b><b>'+brl(r2(t))+'</b></div><button class="submit" id="psend" style="margin-top:10px">Enviar pedido</button>';
 }
 var mSearch='';
+function vLabel(o){return o.cliente?o.table+' · '+o.cliente:o.table}
+function viagemData(){
+  var C={},cd=role==='caixa'?contasData():null;
+  lines.forEach(function(l){
+    if(!l.viagem||!l.conta||l.quitada)return;
+    var o=C[l.conta]||(C[l.conta]={id:l.conta,table:l.table,cliente:l.cliente||'',closedAt:l.closedAt||l.ts||0,tot:0,qty:0,lines:[]});
+    o.tot=r2(o.tot+l.price*l.qty);o.qty+=l.qty;o.lines.push(l);
+  });
+  if(cd)Object.keys(C).forEach(function(k){if(cd[k]&&cd[k].rest<=0)delete C[k]});
+  return C;
+}
+function vtile(o){return '<button class="tile viag" data-go="mesas/'+encodeURIComponent('v~'+o.id)+'" aria-label="'+esc(vLabel(o))+', total '+brl(o.tot)+'"><span class="tn long">'+esc(o.table)+'</span>'+(o.cliente?'<span class="tc">'+esc(o.cliente)+'</span>':'')+'<span class="tl"></span><span class="tt">'+brl(o.tot)+'</span></button>'}
 function gridHtml(){
-  var M=mesaData(),ks=Object.keys(M).map(function(k){return M[k]}),q=norm(mSearch).replace(/\s+/g,'');
+  var M=mesaData(),ks=Object.keys(M).map(function(k){return M[k]}),V=viagemData(),vs=Object.keys(V).map(function(k){return V[k]}).sort(function(a,b){return a.closedAt-b.closedAt}),q=norm(mSearch).replace(/\s+/g,'');
   ks.sort(function(a,b){return String(a.table).localeCompare(String(b.table),'pt-BR',{numeric:true})});
-  var l=q?ks.filter(function(o){return norm(o.table).replace(/\s+/g,'').indexOf(q)>-1}):ks;
-  if(!l.length)return '<div class="note" style="grid-column:1/-1">'+(q?'Nenhuma mesa aberta com “'+esc(mSearch.trim())+'”. <button class="link" data-newmesa="'+esc(mSearch.trim())+'">Lançar pedido para a mesa '+esc(mSearch.trim())+'</button>':'Nenhuma mesa aberta no momento.')+'</div>';
-  return l.map(function(o){return '<button class="tile" data-go="mesas/'+encodeURIComponent(o.key)+'" aria-label="Mesa '+esc(o.table)+', total '+brl(o.tot)+'"><span class="tn'+(String(o.table).length>3?' long':'')+'">'+esc(o.table)+'</span><span class="tl"></span><span class="tt">'+brl(o.tot)+'</span></button>'}).join('');
+  var l=q?ks.filter(function(o){return norm(o.table).replace(/\s+/g,'').indexOf(q)>-1}):ks,
+      vl=q?vs.filter(function(o){return norm(vLabel(o)).replace(/\s+/g,'').indexOf(q)>-1}):vs;
+  if(!l.length&&!vl.length)return '<div class="note" style="grid-column:1/-1">'+(q?'Nenhuma mesa ou pedido de viagem com “'+esc(mSearch.trim())+'”. <button class="link" data-newmesa="'+esc(mSearch.trim())+'">Lançar pedido para a mesa '+esc(mSearch.trim())+'</button>':'Nenhuma mesa aberta no momento.')+'</div>';
+  var h=l.map(function(o){return '<button class="tile" data-go="mesas/'+encodeURIComponent(o.key)+'" aria-label="Mesa '+esc(o.table)+', total '+brl(o.tot)+'"><span class="tn'+(String(o.table).length>3?' long':'')+'">'+esc(o.table)+'</span><span class="tl"></span><span class="tt">'+brl(o.tot)+'</span></button>'}).join('');
+  if(vl.length)h+='<h2 style="grid-column:1/-1;margin:12px 0 0">Pedidos para viagem</h2>'+vl.map(vtile).join('');
+  return h;
+}
+function viagemDetalhe(){
+  var o=viagemData()[viewArg.slice(2)];
+  if(!o){app.innerHTML=backBtn('mesas','Voltar às mesas')+'<div class="note">Este pedido de viagem não está mais aberto. Ele pode já ter sido pago.</div>';return}
+  var its=o.lines.map(function(l){return '<div class="item"><div><b>'+l.qty+'× '+esc(l.name)+'</b><small>'+(l.by?esc(l.by)+' · ':'')+(l.obs?esc(l.obs)+' · ':'')+hm(l.ts)+'</small></div><b>'+brl(r2(l.price*l.qty))+'</b></div>'}).join('');
+  app.innerHTML=backBtn('mesas','Voltar às mesas')+'<div class="center"><p class="muted">Pedido para viagem</p><div class="bigmesa long">'+esc(o.table)+'</div>'+(o.cliente?'<p class="muted"><b>Cliente: '+esc(o.cliente)+'</b></p>':'')+'<p class="muted">Pedido às '+hm(o.closedAt)+'</p></div>'+
+  '<div class="card" style="margin-top:14px">'+its+'<div class="item"><b>Total do pedido</b><b class="gt">'+brl(o.tot)+'</b></div></div>'+
+  (role==='caixa'?'<button class="submit" data-go="conta/'+encodeURIComponent(o.id)+'" style="margin-top:14px">Receber pagamento</button>':'<p class="muted" style="margin-top:12px">O caixa recebe o pagamento deste pedido.</p>');
 }
 function mesas(){
   if(viewArg){mesaDetalhe();return}
@@ -555,6 +580,7 @@ function mesas(){
   '<div class="mgrid" id="mgrid">'+gridHtml()+'</div>';
 }
 function mesaDetalhe(){
+  if(/^v~/.test(viewArg)){viagemDetalhe();return}
   var o=mesaData()[viewArg];
   if(!o){app.innerHTML=backBtn('mesas','Voltar às mesas')+'<div class="note">Esta mesa não tem conta aberta. Ela pode já ter sido fechada.</div>';return}
   var its=o.lines.map(function(l){
@@ -581,7 +607,7 @@ function addMenuItem(){
 function subscribeLines(id){
   if(unsubL&&subL===id)return;if(unsubL)unsubL();subL=id;lines=[];seenL=null;seenC=null;
   unsubL=db.collection('itens').where('night','==',id).onSnapshot(function(sn){
-    lines=sn.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,name:x.name,price:Number(x.price)||0,qty:Number(x.qty)||1,obs:x.obs||'',by:x.by||'',closed:!!x.closed,conta:x.conta||'',closedAt:x.closedAt||0,closedBy:x.closedBy||'',viagem:!!x.viagem,cliente:x.cliente||'',ts:x.ts||0}}).sort(function(a,b){return a.ts-b.ts});
+    lines=sn.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,name:x.name,price:Number(x.price)||0,qty:Number(x.qty)||1,obs:x.obs||'',by:x.by||'',closed:!!x.closed,conta:x.conta||'',closedAt:x.closedAt||0,closedBy:x.closedBy||'',viagem:!!x.viagem,cliente:x.cliente||'',quitada:!!x.quitada,ts:x.ts||0}}).sort(function(a,b){return a.ts-b.ts});
     notifyNew();
     if(view==='mesas')mesas();else if(view==='pedidos')updPedLive();else refreshContas();
   },function(){});
@@ -840,6 +866,7 @@ async function payConta(ev){
   try{
     await db.collection('pagamentos').add({night:nightId,table:o.label||o.table,method:m,value:v,ts:Date.now(),conta:o.id});
     var left=r2(o.rest-v);
+    if(left<=0&&o.viagem){try{await Promise.all(o.lines.map(function(l){return db.doc('itens/'+l.id).update({quitada:true,quitadaAt:Date.now()})}))}catch(e){}}
     if(left<=0){toast(mesaLabel(o.label||o.table)+' quitada · '+m+' '+brl(v));location.hash='#/caixa'}
     else{toast('Pagamento registrado · restante '+brl(left));chosen=null;document.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed','false')});var cv=document.getElementById('cvalor');if(cv)cv.value=fmtIn(left);msg.textContent=''}
   }catch(e){fail('Não foi possível registrar. Tente de novo.')}
@@ -951,7 +978,11 @@ document.addEventListener('click',async function(ev){
         }
         await db.doc('config/noite').set({id:'n'+Date.now(),since:Date.now()});
       }
-      else await db.doc('pagamentos/'+b.getAttribute('data-rm')).delete();
+      else{
+        var pid=b.getAttribute('data-rm'),pp=payments.filter(function(e){return e.id===pid})[0];
+        await db.doc('pagamentos/'+pid).delete();
+        if(pp&&pp.conta){var oc=contasData()[pp.conta];if(oc&&oc.viagem)oc.lines.forEach(function(l){db.doc('itens/'+l.id).update({quitada:false}).catch(function(){})})}
+      }
     }catch(e){b.disabled=false;b.removeAttribute('data-armed');b.textContent='Não foi possível. Tentar de novo';if(e&&(e.code==='invalid_argument'||e.code==='permission-denied')){canWrite=false}}
   }
 });
