@@ -133,6 +133,7 @@ body.modal-open{overflow:hidden}
 .sw-l{position:absolute;top:0;bottom:0;display:flex;align-items:center;font-size:.8rem;font-weight:800;letter-spacing:.02em}
 .sw[aria-checked="true"] .sw-l{left:13px;color:#fff}.sw[aria-checked="false"] .sw-l{right:11px;color:var(--accent)}
 .sndrow{padding:10px 16px}.sndic{display:flex;align-items:center;padding:6px;border:0;background:none;color:var(--accent)}.sndic svg{width:32px;height:32px}
+.tile.free{background:var(--field);color:var(--accent);border:1.5px solid var(--accent);box-shadow:none}.tile.free .tl{background:rgba(0,48,112,.35)}.tile.free .tt{font-weight:600;font-size:.9rem}
 </style>
 </head>
 <body>
@@ -279,7 +280,7 @@ function itemsHtml(){
   if(!loaded)return '<p class="muted">Carregando pagamentos…</p>';
   if(!payments.length)return '<p class="muted">Nenhum pagamento registrado nesta noite.</p>';
   return payments.map(function(e){
-    return '<div class="item"><div><b>Mesa '+esc(e.table)+'</b><small>'+esc(e.method)+' · '+hm(e.ts)+'</small></div>'+
+    return '<div class="item"><div><b>'+esc(mesaLabel(e.table))+'</b><small>'+esc(e.method)+' · '+hm(e.ts)+'</small></div>'+
     '<div><b>'+brl(e.value)+'</b>'+(canWrite?' <button class="rm" data-rm="'+esc(e.id)+'" data-label="Remover">Remover</button>':'')+'</div></div>';
   }).join('');
 }
@@ -320,7 +321,7 @@ function methodRows(m,total){return METHODS.map(function(n,i){var p=total?Math.r
 function roItems(arr,ok){
   if(!ok)return '<p class="muted">Carregando pagamentos…</p>';
   if(!arr.length)return '<p class="muted">Nenhum pagamento nesta noite.</p>';
-  return arr.map(function(e){return '<div class="item"><div><b>Mesa '+esc(e.table)+'</b><small>'+esc(e.method)+' · '+hm(e.ts)+'</small></div><b>'+brl(e.value)+'</b></div>'}).join('');
+  return arr.map(function(e){return '<div class="item"><div><b>'+esc(mesaLabel(e.table))+'</b><small>'+esc(e.method)+' · '+hm(e.ts)+'</small></div><b>'+brl(e.value)+'</b></div>'}).join('');
 }
 function historico(){
   var ns=allNights(),M={};
@@ -401,12 +402,101 @@ function mesaData(){
   lines.forEach(function(l){if(l.closed)return;var k=mkey(l.table),o=M[k]||(M[k]={key:k,table:l.table,tot:0,qty:0,lines:[]});o.tot=r2(o.tot+l.price*l.qty);o.qty+=l.qty;o.lines.push(l)});
   return M;
 }
+var cartMesa='',seenC=null;
+function mesaLabel(t){return /^viagem/i.test(String(t))?String(t):'Mesa '+t}
+function pedGrid(){
+  var M=mesaData(),used={};
+  function tile(val,o){
+    return o?'<button class="tile" data-pm="'+esc(val)+'" aria-label="Mesa '+esc(val)+' ocupada, total '+brl(o.tot)+'"><span class="tn'+(String(val).length>3?' long':'')+'">'+esc(val)+'</span><span class="tl"></span><span class="tt">'+brl(o.tot)+'</span></button>'
+    :'<button class="tile free" data-pm="'+esc(val)+'" aria-label="Mesa '+esc(val)+' livre"><span class="tn">'+esc(val)+'</span><span class="tl"></span><span class="tt">livre</span></button>';
+  }
+  var h='<button class="tile free" data-pm="Viagem" aria-label="Pedido para viagem"><span class="tn long">Viagem</span><span class="tl"></span><span class="tt">novo pedido</span></button>';
+  for(var i=1;i<=11;i++){used[String(i)]=1;h+=tile(String(i),M[String(i)])}
+  Object.keys(M).filter(function(k){return !used[k]}).sort(function(a,b){return String(a).localeCompare(String(b),'pt-BR',{numeric:true})}).forEach(function(k){h+=tile(M[k].table,M[k])});
+  return h;
+}
+function pedHead(){
+  var isV=pedMesa==='Viagem',o=isV?null:mesaData()[mkey(pedMesa)],lab=role==='caixa'?'Fechar conta':'Enviar mesa para o caixa',lg=String(pedMesa).length>3;
+  return '<button class="link" data-pback="1">← Trocar mesa</button><div class="center"><p class="muted">'+(isV?'Pedido para viagem':'Lançando na mesa')+'</p><div class="bigmesa'+(lg?' long':'')+'" style="font-size:'+(lg?'2.6rem':'3.6rem')+'">'+esc(pedMesa)+'</div>'+
+  (o?'<p class="muted">Conta atual: <b>'+brl(o.tot)+'</b> · '+plural(o.qty,'item','itens')+'</p>':(isV?'<p class="muted">Cada pedido de viagem é separado.</p>':'<p class="muted">Mesa livre</p>'))+'</div>'+
+  (o?'<button class="big alt" id="penviar" data-label="'+lab+'" style="margin:12px 0 4px;font-size:1.05rem;padding:14px">'+lab+'</button>'+(role==='caixa'?'':'<p class="muted" style="text-align:center;margin-bottom:4px">Libera a mesa para novos clientes. O caixa recebe depois.</p>')+'<div class="msg" id="fmsg" role="alert"></div>':'');
+}
 function pedidos(){
-  app.innerHTML=backBtn('','Voltar')+'<h1>Lançar pedido</h1><p class="muted">Informe a mesa e toque nos itens.</p>'+offlineNote()+seg('pedidos')+
-  '<div class="card" style="margin-top:14px"><label for="pmesa">Mesa</label><input id="pmesa" type="text" inputmode="numeric" autocomplete="off" value="'+esc(pedMesa)+'"></div>'+
+  if(!pedMesa){
+    app.innerHTML=backBtn('','Voltar')+'<h1>Lançar pedido</h1><p class="muted">Escolha a mesa ou viagem.</p>'+offlineNote()+seg('pedidos')+'<div class="mgrid" id="pgrid" style="margin-top:14px">'+pedGrid()+'</div>';
+    return;
+  }
+  app.innerHTML=backBtn('','Voltar')+offlineNote()+seg('pedidos')+'<div id="phead" style="margin-top:12px">'+pedHead()+'</div>'+
   '<div class="chips c3" id="pcats" style="margin-top:14px"></div><div class="card" id="pitems"></div><h2>Pedido</h2><div class="card" id="pcart"></div><div class="msg" id="pmsg" role="status"></div>';
   updItems();updCart();
 }
+function updPedLive(){
+  var g=document.getElementById('pgrid');
+  if(!pedMesa){if(g)g.innerHTML=pedGrid();return}
+  var h=document.getElementById('phead');if(h)h.innerHTML=pedHead();
+}
+async function sendOrder(b){
+  var mesa=String(pedMesa||'').trim(),msg=document.getElementById('pmsg');
+  function fail(s){msg.className='msg err';msg.textContent=s}
+  if(!mesa)return fail('Escolha a mesa.');
+  if(!cart.length)return fail('Adicione ao menos um item.');
+  if(!db)return fail('Sem conexão com o armazenamento compartilhado.');
+  b.disabled=true;
+  var ts=Date.now(),tot=0,table=mesa,extra={};
+  if(mesa==='Viagem'){
+    var seq={};lines.forEach(function(l){if(l.viagem&&l.conta)seq[l.conta]=1});
+    table='Viagem '+(Object.keys(seq).length+1);
+    extra={closed:true,closedAt:ts,conta:'c'+ts,closedBy:userName||'',viagem:true};
+  }
+  try{
+    await Promise.all(cart.map(function(c,i){
+      tot+=c.price*c.qty;
+      var d={night:nightId,table:table,name:c.name,price:c.price,qty:c.qty,obs:c.obs||'',by:userName||'',ts:ts+i};
+      Object.keys(extra).forEach(function(k){d[k]=extra[k]});
+      return db.collection('itens').add(d);
+    }));
+    cart=[];cartMesa='';pedMesa='';
+    toast('Pedido enviado · '+mesaLabel(table)+' · '+brl(r2(tot)),2500);
+    pedidos();
+  }catch(e){fail('Não foi possível enviar. Tente de novo.')}
+  b.disabled=false;
+}
+async function closeAccount(b,key){
+  var o=mesaData()[key||viewArg];if(!o||!db)return;
+  var lbl=b.dataset.label||'Fechar conta';
+  b.disabled=true;var ts=Date.now(),cid='c'+ts;
+  try{
+    await Promise.all(o.lines.map(function(l){return db.doc('itens/'+l.id).update({closed:true,closedAt:ts,conta:cid,closedBy:userName||''})}));
+    if(role==='caixa'){toast('Conta da mesa '+o.table+' fechada · '+brl(o.tot));location.hash='#/conta/'+encodeURIComponent(cid)}
+    else{
+      toast('Mesa '+o.table+' enviada para o caixa · '+brl(o.tot),2800);
+      if(view==='pedidos'){pedMesa='';cart=[];cartMesa='';pedidos()}else location.hash='#/mesas';
+    }
+  }catch(e){b.disabled=false;b.removeAttribute('data-armed');b.textContent=lbl;var m=document.getElementById('fmsg');if(m){m.className='msg err';m.textContent='Não foi possível concluir. Tente de novo.'}}
+}
+function notifyNew(){
+  var cur={},curC={},fresh=[],sent=[];
+  lines.forEach(function(l){
+    cur[l.id]=1;if(l.conta)curC[l.conta]=l;
+    if(role==='caixa'&&seenL&&!seenL[l.id]&&l.by&&l.by!==userName&&(!l.closed||l.viagem))fresh.push(l);
+  });
+  Object.keys(curC).forEach(function(k){var l=curC[k];if(role==='caixa'&&seenC&&!seenC[k]&&!l.viagem&&l.closedBy&&l.closedBy!==userName)sent.push(l)});
+  seenL=cur;seenC=curC;
+  if(!fresh.length&&!sent.length)return;
+  var parts=[];
+  if(fresh.length){
+    var ns=[],q=0;fresh.forEach(function(l){var n=/^viagem/i.test(String(l.table))?String(l.table):'mesa '+l.table;if(ns.indexOf(n)<0)ns.push(n);q+=l.qty});
+    parts.push((ns.length===1?'Novo pedido · ':'Novos pedidos · ')+ns.join(', ')+' ('+plural(q,'item','itens')+')');
+  }
+  if(sent.length){
+    var ts2=[];sent.forEach(function(l){var t=String(l.table);if(ts2.indexOf(t)<0)ts2.push(t)});
+    parts.push(ts2.length===1?'Mesa '+ts2[0]+' enviada para o caixa':'Mesas '+ts2.join(', ')+' enviadas para o caixa');
+  }
+  var ok=soundOn&&playChime();
+  toast(parts.join(' · ')+(soundOn&&!ok?' · toque na tela para ativar o som':''),4500);
+  if(soundOn){try{if(navigator.vibrate)navigator.vibrate([180,90,180])}catch(x){}}
+}
+function crow(o){var how=o.viagem?'Pedido às ':(o.by==='Salão'?'Enviada pelo salão às ':'Fechada às ');return '<button class="rb" data-go="conta/'+encodeURIComponent(o.id)+'"><span><b>'+esc(mesaLabel(o.table))+'</b><small>'+how+hm(o.closedAt)+(o.rest>0&&o.pago>0?' · pago '+brl(o.pago):'')+'</small></span><span class="rr"><b>'+brl(o.rest>0?o.rest:o.tot)+'</b><small>'+(o.rest>0?'a receber':'quitada')+'</small></span></button>'}
 function updItems(){
   var pc=document.getElementById('pcats'),pi=document.getElementById('pitems');if(!pc||!pi)return;
   pc.innerHTML=CATL.map(function(c){return '<button type="button" class="chip" data-pc="'+c+'" aria-pressed="'+(c===pedCat)+'">'+c+'</button>'}).join('');
@@ -420,20 +510,6 @@ function updCart(){
   var t=0;
   el.innerHTML=cart.map(function(c){t+=c.price*c.qty;return '<div class="item"><div style="flex:1"><b>'+esc(c.name)+'</b><small>'+brl(c.price)+' cada</small><input class="obs" type="text" data-obs="'+esc(c.id)+'" placeholder="Observação (opcional)" value="'+esc(c.obs)+'"></div><div class="qty"><button data-q="'+esc(c.id)+'" data-d="-1" aria-label="Diminuir">−</button><b>'+c.qty+'</b><button data-q="'+esc(c.id)+'" data-d="1" aria-label="Aumentar">+</button></div></div>'}).join('')+
   '<div class="item"><b>Total</b><b>'+brl(r2(t))+'</b></div><button class="submit" id="psend" style="margin-top:10px">Enviar pedido</button>';
-}
-async function sendOrder(b){
-  var mesa=document.getElementById('pmesa').value.trim(),msg=document.getElementById('pmsg');
-  function fail(s){msg.className='msg err';msg.textContent=s}
-  if(!mesa)return fail('Informe o número da mesa.');
-  if(!cart.length)return fail('Adicione ao menos um item.');
-  if(!db)return fail('Sem conexão com o armazenamento compartilhado.');
-  b.disabled=true;var ts=Date.now(),tot=0,n=0;
-  try{
-    await Promise.all(cart.map(function(c,i){tot+=c.price*c.qty;n+=c.qty;return db.collection('itens').add({night:nightId,table:mesa,name:c.name,price:c.price,qty:c.qty,obs:c.obs||'',by:userName||'',ts:ts+i})}));
-    msg.className='msg ok';msg.textContent='Pedido enviado: mesa '+mesa+', '+n+' item(ns), '+brl(r2(tot))+'.';
-    cart=[];pedMesa='';document.getElementById('pmesa').value='';updCart();
-  }catch(e){fail('Não foi possível enviar. Tente de novo.')}
-  b.disabled=false;
 }
 var mSearch='';
 function gridHtml(){
@@ -457,16 +533,8 @@ function mesaDetalhe(){
   }).join('');
   app.innerHTML=backBtn('mesas','Voltar às mesas')+'<div class="center"><p class="muted">Conta da mesa</p><div class="bigmesa'+(String(o.table).length>3?' long':'')+'">'+esc(o.table)+'</div></div>'+
   '<div class="card" style="margin-top:14px">'+its+'<div class="item"><b>Total da conta</b><b class="gt">'+brl(o.tot)+'</b></div></div>'+
-  (role==='caixa'?'<button class="submit" id="fechar" data-label="Fechar conta" style="margin-top:14px">Fechar conta</button><p class="muted" style="margin-top:8px">Encerra a conta e tira a mesa da lista. Os itens ficam guardados.</p><div class="msg" id="fmsg" role="alert"></div>':'<p class="muted" style="margin-top:12px">Só o caixa pode fechar a conta.</p>')+
+  (role==='caixa'?'<button class="submit" id="fechar" data-label="Fechar conta" style="margin-top:14px">Fechar conta</button><p class="muted" style="margin-top:8px">Encerra a conta e tira a mesa da lista. Os itens ficam guardados.</p><div class="msg" id="fmsg" role="alert"></div>':'<button class="submit" id="fechar" data-label="Enviar para o caixa" style="margin-top:14px">Enviar para o caixa</button><p class="muted" style="margin-top:8px">Libera a mesa para novos clientes. O caixa recebe o pagamento depois.</p><div class="msg" id="fmsg" role="alert"></div>')+
   '<button class="big alt" data-newmesa="'+esc(o.table)+'">Adicionar itens a esta mesa</button>';
-}
-async function closeAccount(b,key){
-  var o=mesaData()[key||viewArg];if(!o||!db)return;
-  b.disabled=true;var ts=Date.now(),cid='c'+ts;
-  try{
-    await Promise.all(o.lines.map(function(l){return db.doc('itens/'+l.id).update({closed:true,closedAt:ts,conta:cid})}));
-    toast('Conta da mesa '+o.table+' fechada · '+brl(o.tot));location.hash='#/conta/'+encodeURIComponent(cid);
-  }catch(e){b.disabled=false;b.removeAttribute('data-armed');b.textContent='Fechar conta';var m=document.getElementById('fmsg');if(m){m.className='msg err';m.textContent='Não foi possível fechar a conta. Tente de novo.'}}
 }
 function mrow(m){return '<div class="mrow"><input type="text" value="'+esc(m.name)+'" data-mid="'+esc(m.id)+'" data-mf="name" aria-label="Nome"><input type="text" inputmode="decimal" value="'+(m.price==null?'':fmtIn(m.price))+'" placeholder="sem preço" data-mid="'+esc(m.id)+'" data-mf="price" aria-label="Preço"><button class="rm" data-mdel="'+esc(m.id)+'" data-label="Excluir">Excluir</button></div>'}
 function cardapio(){
@@ -482,11 +550,11 @@ function addMenuItem(){
   menu.push({id:'i'+Date.now(),cat:c.value,code:'',name:name,desc:'',price:v});saveMenu();cardapio();
 }
 function subscribeLines(id){
-  if(unsubL&&subL===id)return;if(unsubL)unsubL();subL=id;lines=[];seenL=null;
+  if(unsubL&&subL===id)return;if(unsubL)unsubL();subL=id;lines=[];seenL=null;seenC=null;
   unsubL=db.collection('itens').where('night','==',id).onSnapshot(function(sn){
-    lines=sn.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,name:x.name,price:Number(x.price)||0,qty:Number(x.qty)||1,obs:x.obs||'',by:x.by||'',closed:!!x.closed,conta:x.conta||'',closedAt:x.closedAt||0,ts:x.ts||0}}).sort(function(a,b){return a.ts-b.ts});
+    lines=sn.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,name:x.name,price:Number(x.price)||0,qty:Number(x.qty)||1,obs:x.obs||'',by:x.by||'',closed:!!x.closed,conta:x.conta||'',closedAt:x.closedAt||0,closedBy:x.closedBy||'',viagem:!!x.viagem,ts:x.ts||0}}).sort(function(a,b){return a.ts-b.ts});
     notifyNew();
-    if(view==='mesas')mesas();else refreshContas();
+    if(view==='mesas')mesas();else if(view==='pedidos')updPedLive();else refreshContas();
   },function(){});
 }
 var audioCtx=null,soundOn=true,seenL=null;
@@ -506,17 +574,6 @@ function playChime(){
     return true;
   }catch(e){return false}
 }
-function notifyNew(){
-  var cur={},fresh=[];
-  lines.forEach(function(l){cur[l.id]=1;if(seenL&&!seenL[l.id]&&!l.closed&&role==='caixa'&&l.by&&l.by!==userName)fresh.push(l)});
-  seenL=cur;
-  if(!fresh.length)return;
-  var ms=[],q=0;fresh.forEach(function(l){var m=String(l.table);if(ms.indexOf(m)<0)ms.push(m);q+=l.qty});
-  var msg=(ms.length===1?'Novo pedido · mesa '+ms[0]:'Novos pedidos · mesas '+ms.join(', '))+' ('+plural(q,'item','itens')+')';
-  var ok=soundOn&&playChime();
-  toast(msg+(soundOn&&!ok?' · toque na tela para ativar o som':''),4500);
-  if(soundOn){try{if(navigator.vibrate)navigator.vibrate([180,90,180])}catch(x){}}
-}
 function sndIcon(on){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z"/>'+(on?'<path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>':'<path d="m16 9 5 6M21 9l-5 6"/>')+'</svg>'}
 function sndRow(){return '<div class="card sndrow" style="margin-top:24px"><button type="button" class="sndic" data-snd="test" aria-label="Testar som" title="Testar som">'+sndIcon(soundOn)+'</button><button type="button" class="sw" role="switch" aria-checked="'+soundOn+'" data-snd="toggle" aria-label="Som de novos pedidos" title="Som de novos pedidos"><span class="sw-l">'+(soundOn?'ON':'OFF')+'</span><span class="sw-k"></span></button></div>'}
 function handleSnd(b){
@@ -530,9 +587,12 @@ var toastT=null;
 function toast(t,ms){var e=document.getElementById('toast');if(!e)return;e.textContent=t;e.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){e.classList.remove('show')},ms||1600);try{if(navigator.vibrate)navigator.vibrate(25)}catch(x){}}
 function handlePed(b){
   var d=b.dataset;
+  if(d.pm!==undefined){if(cart.length&&cartMesa&&cartMesa!==d.pm){cart=[];cartMesa='';toast('Pedido anterior descartado',2000)}pedMesa=d.pm;pedidos();return true}
+  if(d.pback){pedMesa='';pedidos();return true}
+  if(b.id==='penviar'){if(arm(b))return true;closeAccount(b,mkey(pedMesa));return true}
   if(d.pc){pedCat=d.pc;updItems();return true}
   if(d.add){var m=menu.filter(function(x){return x.id===d.add})[0];if(!m||m.price==null)return true;
-    var c=cart.filter(function(x){return x.id===m.id})[0];if(c)c.qty++;else cart.push({id:m.id,name:m.name,price:m.price,qty:1,obs:''});updCart();var cc=cart.filter(function(x){return x.id===m.id})[0];toast('✓ '+m.name+' adicionado · '+cc.qty+'×');return true}
+    var c=cart.filter(function(x){return x.id===m.id})[0];if(c)c.qty++;else cart.push({id:m.id,name:m.name,price:m.price,qty:1,obs:''});cartMesa=pedMesa;updCart();var cc=cart.filter(function(x){return x.id===m.id})[0];toast('✓ '+m.name+' adicionado · '+cc.qty+'×');return true}
   if(d.q){var c2=cart.filter(function(x){return x.id===d.q})[0];if(c2){c2.qty+=Number(d.d);if(c2.qty<1)cart=cart.filter(function(x){return x!==c2})}updCart();return true}
   if(d.newmesa!==undefined){pedMesa=d.newmesa;location.hash='#/pedidos';return true}
   if(b.id==='fechar'){if(arm(b))return true;closeAccount(b);return true}
@@ -648,7 +708,7 @@ function editItem(t,d){
 
 function contasData(){
   var C={};
-  lines.forEach(function(l){if(!l.closed||!l.conta)return;var o=C[l.conta]||(C[l.conta]={id:l.conta,table:l.table,closedAt:l.closedAt||0,tot:0,pago:0,lines:[],pays:[]});o.tot=r2(o.tot+l.price*l.qty);o.lines.push(l)});
+  lines.forEach(function(l){if(!l.closed||!l.conta)return;var o=C[l.conta]||(C[l.conta]={id:l.conta,table:l.table,closedAt:l.closedAt||0,by:l.closedBy||'',viagem:!!l.viagem,tot:0,pago:0,lines:[],pays:[]});o.tot=r2(o.tot+l.price*l.qty);o.lines.push(l)});
   payments.forEach(function(p){var o=p.conta&&C[p.conta];if(o){o.pago=r2(o.pago+p.value);o.pays.push(p)}});
   Object.keys(C).forEach(function(k){C[k].rest=r2(C[k].tot-C[k].pago)});
   return C;
@@ -673,7 +733,6 @@ function fGrid(){
   return l.map(function(o){return '<button class="tile" data-fm="'+esc(o.key)+'" aria-label="Fechar conta da mesa '+esc(o.table)+', total '+brl(o.tot)+'"><span class="tn'+(String(o.table).length>3?' long':'')+'">'+esc(o.table)+'</span><span class="tl"></span><span class="tt">'+brl(o.tot)+'</span></button>'}).join('');
 }
 function pendCount(){var C=contasData();return Object.keys(C).filter(function(k){return C[k].rest>0}).length}
-function crow(o){return '<button class="rb" data-go="conta/'+encodeURIComponent(o.id)+'"><span><b>Mesa '+esc(o.table)+'</b><small>Fechada às '+hm(o.closedAt)+(o.rest>0&&o.pago>0?' · pago '+brl(o.pago):'')+'</small></span><span class="rr"><b>'+brl(o.rest>0?o.rest:o.tot)+'</b><small>'+(o.rest>0?'a receber':'quitada')+'</small></span></button>'}
 function modalBody(){
   var tt=document.getElementById('cmt'),tb=document.getElementById('ctabs');
   if(cMode==='fechar'){var ae=document.activeElement&&document.activeElement.id;tt.textContent='Fechar conta';tb.hidden=true;document.getElementById('cbody').innerHTML=fecharBody();if(ae==='fsq'){var fe=document.getElementById('fsq');if(fe){fe.focus();try{fe.setSelectionRange(1e4,1e4)}catch(x){}}}return}
@@ -723,7 +782,7 @@ function contaDetalhe(){
   var o=contasData()[viewArg];
   if(!o){app.innerHTML=backBtn('caixa','Voltar')+'<div class="note">'+(loaded?'Conta não encontrada.':'Carregando…')+'</div>';return}
   chosen=null;
-  app.innerHTML=backBtn('caixa','Voltar')+'<div class="center"><p class="muted">Conta fechada da mesa</p><div class="bigmesa'+(String(o.table).length>3?' long':'')+'">'+esc(o.table)+'</div><p class="muted">Fechada às '+hm(o.closedAt)+'</p></div><div id="cinfo">'+contaBody(o)+'</div><div id="cform" style="margin-top:14px">'+contaForm(o)+'</div>';
+  app.innerHTML=backBtn('caixa','Voltar')+'<div class="center"><p class="muted">'+(o.viagem?'Pedido para viagem':'Conta fechada da mesa')+'</p><div class="bigmesa'+(String(o.table).length>3?' long':'')+'">'+esc(o.table)+'</div><p class="muted">'+(o.viagem?'Pedido às ':(o.by==='Salão'?'Enviada pelo salão às ':'Fechada às '))+hm(o.closedAt)+'</p></div><div id="cinfo">'+contaBody(o)+'</div><div id="cform" style="margin-top:14px">'+contaForm(o)+'</div>';
 }
 function updConta(){
   var o=contasData()[viewArg],i=document.getElementById('cinfo');if(!o||!i)return;
@@ -748,7 +807,7 @@ async function payConta(ev){
   try{
     await db.collection('pagamentos').add({night:nightId,table:o.table,method:m,value:v,ts:Date.now(),conta:o.id});
     var left=r2(o.rest-v);
-    if(left<=0){toast('Conta da mesa '+o.table+' quitada · '+m+' '+brl(v));location.hash='#/caixa'}
+    if(left<=0){toast(mesaLabel(o.table)+' quitada · '+m+' '+brl(v));location.hash='#/caixa'}
     else{toast('Pagamento registrado · restante '+brl(left));chosen=null;document.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed','false')});var cv=document.getElementById('cvalor');if(cv)cv.value=fmtIn(left);msg.textContent=''}
   }catch(e){fail('Não foi possível registrar. Tente de novo.')}
   b.disabled=false;
