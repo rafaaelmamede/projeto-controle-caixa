@@ -98,7 +98,7 @@ input[type=search]{width:100%;padding:14px;border:1.5px solid rgba(0,48,112,.4);
 input[type=password]{width:100%;padding:14px;border:1.5px solid rgba(0,48,112,.4);border-radius:10px;background:var(--field);color:inherit;font-size:1.25rem}
 .sub3{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
 body:not([data-role="caixa"]):not([data-role="garcom"]) .fabs{display:none}
-body[data-role="garcom"] .fab:not(#fabout){display:none}
+body[data-role="garcom"] .fab:not(#fabout),body[data-role="cozinha"] .fab:not(#fabout){display:none}
 body[data-mode="local"] #fabout{display:none}
 .toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);max-width:90vw;padding:12px 18px;border-radius:999px;background:var(--accent);color:var(--on-accent);font-weight:600;text-align:center;box-shadow:0 6px 18px rgba(0,48,112,.3);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;z-index:20}
 .toast.show{opacity:1;transform:translate(-50%,0)}
@@ -140,6 +140,15 @@ body.modal-open{overflow:hidden}
 .tile.add{background:#33639F;border:2px dashed rgba(255,255,255,.85);box-shadow:none}.tile.add .tn{font-size:2.3rem}
 .tile.viag{background:#33639F}.tile.viag .tn{font-size:1.15rem;white-space:nowrap}.tile .tc{max-width:92%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:.82rem;font-weight:600;color:#fff}
 .mgrid{grid-template-columns:repeat(3,minmax(0,1fr))}.tile{min-width:0}
+body.kview main{max-width:1200px}
+.kcol{display:none}.kcol.on{display:block}.kh{display:none}
+.kcard{margin-bottom:12px;padding:14px}.kcard.late{border:2px solid var(--danger)}
+.khead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px}.kt{font-size:1.35rem;color:var(--accent)}.kw{font-size:.9rem;color:var(--muted);text-align:right}.kcard.late .kw{color:var(--danger);font-weight:700}
+.kit{padding:8px 0;border-top:1px solid var(--line);font-size:1.15rem}.kit.canc b{text-decoration:line-through;color:var(--muted)}
+.kobs{display:block;margin-top:4px;padding:5px 9px;border-radius:8px;background:rgba(0,48,112,.12);font-weight:700;font-size:1rem}
+.ktag{margin-left:8px;padding:2px 8px;border-radius:99px;background:var(--danger);color:#fff;font-size:.75rem;font-weight:700}
+.kact{margin-top:10px}.kact .submit{width:100%}.kact .link{display:block;margin:0 auto}
+@media (min-width:900px){.kcols{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:start}.kcol{display:block}.kh{display:block;margin:0 0 10px}.ktabs{display:none}}
 </style>
 </head>
 <body>
@@ -263,7 +272,7 @@ function home(){
   var g=role==='garcom';
   app.innerHTML='<div class="center"><div class="logo"><img src="'+LOGO+'" alt="Tri Lanches, comida brasileira"></div><h1>Painel do restaurante</h1><p class="muted">Escolha uma área para começar.</p></div>'+
   (g?'':'<button class="big" data-go="caixa">Controle de caixa</button>')+'<button class="big" data-go="pedidos"'+(g?'':' style="margin-top:24px"')+'>Lançamento de pedidos</button>'+
-  (g?'':'<button class="big" data-go="estoque" style="margin-top:24px">Controle de estoque</button>')+(g?'':sndRow())+offlineNote();
+  (g?'':'<button class="big" data-go="estoque" style="margin-top:24px">Controle de estoque</button>')+(g?'':'<button class="big" data-go="cozinha" style="margin-top:24px">Cozinha</button>')+sndRow()+offlineNote();
 }
 function caixa(){
   chosen=null;
@@ -312,7 +321,7 @@ function pct(x){return (x*100).toFixed(1).replace('.',',')+'%'}
 function wk(ts){var d=new Date(ts);d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d.getTime()}
 function mean(a){return a.length?a.reduce(function(x,y){return x+y},0)/a.length:0}
 function nm(n){return MK.map(function(k){return n[k]||0})}
-function backBtn(go,l){return '<div class="top"><button class="link" data-go="'+go+'">'+l+'</button></div>'}
+function backBtn(go,l){return role==='cozinha'&&go===''?'':'<div class="top"><button class="link" data-go="'+go+'">'+l+'</button></div>'}
 function plural(n,s,pl){return n+' '+(n===1?s:(pl||s+'s'))}
 function allNights(){
   var a=noites.slice();
@@ -473,7 +482,7 @@ async function sendOrder(b){
   if(mesa==='Viagem'&&!cli){fail('Informe o nome do cliente.');var ci=document.getElementById('pcli');if(ci)ci.focus();return}
   if(!db)return fail('Sem conexão com o armazenamento compartilhado.');
   b.disabled=true;
-  var ts=Date.now(),tot=0,table=mesa,extra={};
+  var ts=Date.now(),tot=0,table=mesa,extra={},pid='p'+ts+Math.random().toString(36).slice(2,6);
   if(mesa==='Viagem'){
     var seq={};lines.forEach(function(l){if(l.viagem&&l.conta)seq[l.conta]=1});
     table='Viagem '+(Object.keys(seq).length+1);
@@ -482,7 +491,9 @@ async function sendOrder(b){
   try{
     await Promise.all(cart.map(function(c,i){
       tot+=c.price*c.qty;
-      var d={night:nightId,table:table,name:c.name,price:c.price,qty:c.qty,obs:c.obs||'',by:userName||'',ts:ts+i};
+      var mi=menu.filter(function(m){return m.id===c.id})[0],cat=mi?mi.cat:'';
+      var d={night:nightId,table:table,name:c.name,price:c.price,qty:c.qty,obs:c.obs||'',by:userName||'',ts:ts+i,pedido:pid,cat:cat};
+      if(cat!=='Bebidas')d.kstatus='novo';
       Object.keys(extra).forEach(function(k){d[k]=extra[k]});
       return db.collection('itens').add(d);
     }));
@@ -605,11 +616,12 @@ function addMenuItem(){
   menu.push({id:'i'+Date.now(),cat:c.value,code:'',name:name,desc:'',price:v});saveMenu();cardapio();
 }
 function subscribeLines(id){
-  if(unsubL&&subL===id)return;if(unsubL)unsubL();subL=id;lines=[];seenL=null;seenC=null;
+  if(unsubL&&subL===id)return;if(unsubL)unsubL();subL=id;lines=[];cancLines=[];seenL=null;seenC=null;seenK=null;seenKC=null;readyPrev=null;
   unsubL=db.collection('itens').where('night','==',id).onSnapshot(function(sn){
-    lines=sn.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,name:x.name,price:Number(x.price)||0,qty:Number(x.qty)||1,obs:x.obs||'',by:x.by||'',closed:!!x.closed,conta:x.conta||'',closedAt:x.closedAt||0,closedBy:x.closedBy||'',viagem:!!x.viagem,cliente:x.cliente||'',quitada:!!x.quitada,ts:x.ts||0}}).sort(function(a,b){return a.ts-b.ts});
-    notifyNew();
-    if(view==='mesas')mesas();else if(view==='pedidos')updPedLive();else refreshContas();
+    lines=sn.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,name:x.name,price:Number(x.price)||0,qty:Number(x.qty)||1,obs:x.obs||'',by:x.by||'',closed:!!x.closed,conta:x.conta||'',closedAt:x.closedAt||0,closedBy:x.closedBy||'',viagem:!!x.viagem,cliente:x.cliente||'',quitada:!!x.quitada,cancelado:!!x.cancelado,cat:x.cat||'',pedido:x.pedido||'',kstatus:x.kstatus||'',kReadyAt:x.kReadyAt||0,ts:x.ts||0}}).sort(function(a,b){return a.ts-b.ts});
+    cancLines=lines.filter(function(l){return l.cancelado});lines=lines.filter(function(l){return !l.cancelado});
+    notifyNew();notifyKitchen();notifyReady();
+    if(view==='mesas')mesas();else if(view==='pedidos')updPedLive();else if(view==='cozinha')cozinha();else refreshContas();
   },function(){});
 }
 var audioCtx=null,soundOn=true,seenL=null;
@@ -651,7 +663,7 @@ function handlePed(b){
   if(d.q){var c2=cart.filter(function(x){return x.id===d.q})[0];if(c2){c2.qty+=Number(d.d);if(c2.qty<1)cart=cart.filter(function(x){return x!==c2})}updCart();return true}
   if(d.newmesa!==undefined){pedMesa=d.newmesa;location.hash='#/pedidos';return true}
   if(b.id==='fechar'){if(arm(b))return true;closeAccount(b);return true}
-  if(d.ld){if(arm(b))return true;db.doc('itens/'+d.ld).delete().catch(function(){});return true}
+  if(d.ld){if(arm(b))return true;db.doc('itens/'+d.ld).update({cancelado:true,canceladoAt:Date.now()}).catch(function(){});return true}
   if(d.mdel){if(arm(b))return true;menu=menu.filter(function(x){return x.id!==d.mdel});saveMenu();cardapio();return true}
   if(b.id==='nadd'){addMenuItem();return true}
   if(b.id==='psend'){sendOrder(b);return true}
@@ -819,10 +831,91 @@ function handleCx(b){
 document.addEventListener('click',function(ev){if(ev.target.id==='cmodal')closeContas()});
 document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&cOpen)closeContas()});
 window.addEventListener('hashchange',function(){if(cOpen)closeContas()});
+var cancLines=[],seenK=null,seenKC=null,readyPrev=null,kTab='novo',KR={novo:0,preparo:1,pronto:2},KN=['novo','preparo','pronto'];
+function kcat(l){return l.cat||((menu.filter(function(m){return m.name===l.name})[0]||{}).cat)||''}
+function ktitle(o){return o.viagem?o.table+(o.cliente?' · '+o.cliente:''):'Mesa '+o.table}
+function kitchenData(){
+  var P={};
+  function add(l,canc){
+    if(kcat(l)==='Bebidas')return;
+    var key=l.pedido||('o'+Math.floor(l.ts/1000)+'|'+mkey(l.table));
+    var o=P[key]||(P[key]={key:key,table:l.table,cliente:l.cliente||'',viagem:!!l.viagem,ts:l.ts,items:[]});
+    o.items.push({l:l,canc:canc});if(l.ts<o.ts)o.ts=l.ts;
+  }
+  lines.forEach(function(l){add(l,false)});cancLines.forEach(function(l){add(l,true)});
+  return Object.keys(P).map(function(k){
+    var o=P[k],act=o.items.filter(function(i){return !i.canc});
+    o.allCanc=!act.length;
+    var rk=act.length?Math.min.apply(null,act.map(function(i){return KR[i.l.kstatus||'novo']||0})):(o.items.every(function(i){return i.l.kstatus==='pronto'})?2:0);
+    o.status=KN[rk];
+    o.readyAt=Math.max.apply(null,o.items.map(function(i){return i.l.kReadyAt||0}));
+    return o;
+  });
+}
+function kitchenPending(){return kitchenData().filter(function(o){return o.status!=='pronto'&&!o.allCanc}).length}
+function kcard(o){
+  var mins=Math.max(0,Math.round((Date.now()-o.ts)/60000)),late=o.status!=='pronto'&&!o.allCanc&&mins>=15,k=esc(o.key);
+  var its=o.items.slice().sort(function(a,b){return a.l.ts-b.l.ts}).map(function(i){var l=i.l;
+    return '<div class="kit'+(i.canc?' canc':'')+'"><b>'+l.qty+'× '+esc(l.name)+'</b>'+(i.canc?'<span class="ktag">cancelado</span>':'')+(l.obs?'<span class="kobs">'+esc(l.obs)+'</span>':'')+'</div>'}).join('');
+  var act=o.allCanc?'<button class="submit" data-k="pronto" data-kp="'+k+'">Ciente do cancelamento</button>'
+    :o.status==='novo'?'<button class="submit" data-k="preparo" data-kp="'+k+'">Iniciar preparo</button>'
+    :o.status==='preparo'?'<button class="submit" data-k="pronto" data-kp="'+k+'">Pronto</button>'
+    :'<button class="link" data-k="preparo" data-kp="'+k+'">Voltar para preparo</button>';
+  return '<div class="card kcard'+(late?' late':'')+'"><div class="khead"><b class="kt">'+esc(ktitle(o))+'</b><span class="kw">'+(o.status==='pronto'?(o.readyAt?'pronto às '+hm(o.readyAt):'pronto'):hm(o.ts)+' · há '+mins+' min')+'</span></div>'+its+'<div class="kact">'+act+'</div></div>';
+}
+function cozinha(){
+  var P=kitchenData(),now=Date.now(),
+  n=P.filter(function(o){return o.status==='novo'}).sort(function(a,b){return a.ts-b.ts}),
+  p=P.filter(function(o){return o.status==='preparo'}).sort(function(a,b){return a.ts-b.ts}),
+  r=P.filter(function(o){return o.status==='pronto'&&!o.allCanc&&now-(o.readyAt||o.ts)<3600000}).sort(function(a,b){return (b.readyAt||b.ts)-(a.readyAt||a.ts)});
+  function col(k,t,l){return '<div class="kcol'+(kTab===k?' on':'')+'"><h2 class="kh">'+t+' ('+l.length+')</h2>'+(l.length?l.map(kcard).join(''):'<div class="note">Nenhum pedido.</div>')+'</div>'}
+  var tabs=[['novo','Novos',n],['preparo','Em preparo',p],['pronto','Prontos',r]];
+  app.innerHTML=backBtn('','Voltar')+'<h1>Cozinha</h1><p class="muted">Pedidos de fast food e tira-gosto. Atualiza sozinho.</p>'+offlineNote()+sndRow()+
+  '<div class="seg s3 ktabs" style="margin-top:12px">'+tabs.map(function(t){return '<button data-kt="'+t[0]+'" aria-current="'+(kTab===t[0]?'page':'false')+'">'+t[1]+' ('+t[2].length+')</button>'}).join('')+'</div>'+
+  '<div class="kcols" style="margin-top:14px">'+col('novo','Novos',n)+col('preparo','Em preparo',p)+col('pronto','Prontos',r)+'</div>';
+}
+setInterval(function(){if(view==='cozinha'&&authState==='ok')cozinha()},30000);
+async function kSet(key,st){
+  var o=kitchenData().filter(function(x){return x.key===key})[0];if(!o||!db)return;
+  var f={kstatus:st},t=Date.now();if(st==='preparo')f.kStartAt=t;if(st==='pronto')f.kReadyAt=t;
+  try{await Promise.all(o.items.map(function(i){return db.doc('itens/'+i.l.id).update(f)}))}catch(e){toast('Não foi possível atualizar. Tente de novo.',2500)}
+}
+function handleKitchen(b){
+  var d=b.dataset;
+  if(d.kt){kTab=d.kt;cozinha();return true}
+  if(d.k&&d.kp){kSet(d.kp,d.k);return true}
+  return false;
+}
+function kLabel(l){return /^viagem/i.test(String(l.table))?String(l.table)+(l.cliente?' · '+l.cliente:''):'mesa '+l.table}
+function notifyKitchen(){
+  if(role!=='cozinha')return;
+  var cur={},curC={},fresh=[],canc=[];
+  lines.forEach(function(l){cur[l.id]=1;if(seenK&&!seenK[l.id]&&kcat(l)!=='Bebidas')fresh.push(l)});
+  cancLines.forEach(function(l){curC[l.id]=1;if(seenKC&&!seenKC[l.id]&&kcat(l)!=='Bebidas')canc.push(l)});
+  seenK=cur;seenKC=curC;
+  var parts=[];
+  if(fresh.length){var ns=[],q=0;fresh.forEach(function(l){var n=kLabel(l);if(ns.indexOf(n)<0)ns.push(n);q+=l.qty});parts.push((ns.length===1?'Novo pedido · ':'Novos pedidos · ')+ns.join(', ')+' ('+plural(q,'item','itens')+')')}
+  if(canc.length)parts.push('Cancelado: '+canc.map(function(l){return l.qty+'× '+l.name+' ('+kLabel(l)+')'}).join(', '));
+  if(!parts.length)return;
+  var ok=soundOn&&playChime();
+  toast(parts.join(' · ')+(soundOn&&!ok?' · toque na tela para ativar o som':''),5000);
+  if(soundOn){try{if(navigator.vibrate)navigator.vibrate([180,90,180])}catch(x){}}
+}
+function notifyReady(){
+  if(role!=='garcom')return;
+  var P=kitchenData(),cur={},ready=[];
+  P.forEach(function(o){cur[o.key]=o.status;if(readyPrev&&readyPrev[o.key]&&readyPrev[o.key]!=='pronto'&&o.status==='pronto'&&!o.allCanc)ready.push(o)});
+  readyPrev=cur;
+  if(!ready.length)return;
+  var ok=soundOn&&playChime();
+  toast(ready.map(ktitle).join(', ')+': pedido pronto'+(soundOn&&!ok?' · toque na tela para ativar o som':''),5000);
+  if(soundOn){try{if(navigator.vibrate)navigator.vibrate([180,90,180])}catch(x){}}
+}
 function novaNoiteAviso(){
   var a=Object.keys(mesaData()).length,C=contasData(),b=Object.keys(C).filter(function(k){return C[k].rest>0}).length,p=[];
   if(a)p.push(plural(a,'mesa aberta','mesas abertas'));
   if(b)p.push(plural(b,'conta fechada sem pagamento completo','contas fechadas sem pagamento completo'));
+  var kp=kitchenPending();if(kp)p.push(plural(kp,'pedido na cozinha sem terminar','pedidos na cozinha sem terminar'));
   return p.length?'<div class="note" role="alert" style="margin-top:20px"><b>Há '+p.join(' e ')+'.</b> Resolva antes de começar uma nova noite.</div>':'';
 }
 function contaBody(o){
@@ -874,12 +967,14 @@ async function payConta(ev){
 }
 function render(){
   var p=location.hash.replace('#/','').split('/');
-  view=['caixa','pagamentos','historico','analise','noite','pedidos','mesas','cardapio','estoque','conta'].indexOf(p[0])>-1?p[0]:'';
+  view=['caixa','pagamentos','historico','analise','noite','pedidos','mesas','cardapio','estoque','conta','cozinha'].indexOf(p[0])>-1?p[0]:'';
   viewArg=decodeURIComponent(p[1]||'');
   if(authState!=='ok'){authView();return}
   if(role==='garcom'&&view!==''&&view!=='pedidos'&&view!=='mesas'){view='';history.replaceState(null,'','#/')}
+  if(role==='cozinha'&&view!=='cozinha'){view='cozinha';history.replaceState(null,'','#/cozinha')}
+  document.body.classList.toggle('kview',view==='cozinha');
   if(view!=='noite'&&unsubDet){unsubDet();unsubDet=null;detId=''}
-  if(view==='caixa')caixa();else if(view==='pagamentos')pagamentos();else if(view==='historico')historico();else if(view==='analise')analise();else if(view==='noite')noiteView();else if(view==='pedidos')pedidos();else if(view==='mesas')mesas();else if(view==='cardapio')cardapio();else if(view==='estoque')estoque();else if(view==='conta')contaDetalhe();else home();
+  if(view==='caixa')caixa();else if(view==='pagamentos')pagamentos();else if(view==='historico')historico();else if(view==='analise')analise();else if(view==='noite')noiteView();else if(view==='pedidos')pedidos();else if(view==='mesas')mesas();else if(view==='cardapio')cardapio();else if(view==='estoque')estoque();else if(view==='conta')contaDetalhe();else if(view==='cozinha')cozinha();else home();
   document.querySelectorAll('.fab').forEach(function(f){f.setAttribute('aria-current',(view===f.getAttribute('data-go')||(view==='noite'&&f.getAttribute('data-go')==='historico'))?'page':'false')});
 }
 function route(){render();window.scrollTo(0,0)}
@@ -896,7 +991,7 @@ function subscribePayments(id){
   },function(){dbState='off';loaded=true;route()});
 }
 var authState=(window.CAIXA_MODE==='firestore')?'loading':'ok',role='caixa',userName='',myUid='',users=[],started=false;
-var U_CAIXA='caixa.mamede@tri-lanches.app',U_SALAO='salao.123@tri-lanches.app',loginFlag=false;
+var U_CAIXA='caixa.mamede@tri-lanches.app',U_SALAO='salao.123@tri-lanches.app',U_COZINHA='cozinha@tri-lanches.app',loginFlag=false;
 function toEmail(u){u=String(u).trim().toLowerCase();if(u.indexOf('@')>-1)return u;return u.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'')+'@tri-lanches.app'}
 function roleLabel(r){return r==='caixa'?'Caixa':'Garçom'}
 function authView(){
@@ -945,8 +1040,8 @@ async function init(){
     firebase.auth().onAuthStateChanged(function(u){
       if(!u){authState='login';role='';document.body.dataset.role='';route();return}
       var em=String(u.email||'').toLowerCase();
-      role=em===U_CAIXA?'caixa':em===U_SALAO?'garcom':'';
-      userName=role==='caixa'?'Caixa':role==='garcom'?'Salão':'';
+      role=em===U_CAIXA?'caixa':em===U_SALAO?'garcom':em===U_COZINHA?'cozinha':'';
+      userName=role==='caixa'?'Caixa':role==='garcom'?'Salão':role==='cozinha'?'Cozinha':'';
       authState=role?'ok':'noaccess';dbState='ok';
       document.body.dataset.role=role;
       if(role)startApp();
@@ -962,7 +1057,7 @@ document.addEventListener('click',async function(ev){
     document.querySelectorAll('.fab.open').forEach(function(x){x.classList.remove('open')});
     b.classList.add('open');setTimeout(function(){b.classList.remove('open')},3500);return}
   if(b.hasAttribute('data-go')){document.querySelectorAll('.fab.open').forEach(function(x){x.classList.remove('open')});location.hash='#/'+b.getAttribute('data-go');return}
-  if(handlePed(b)||handleStock(b)||handleAuth(b)||handleSnd(b)||handleCx(b))return;
+  if(handlePed(b)||handleStock(b)||handleAuth(b)||handleSnd(b)||handleCx(b)||handleKitchen(b))return;
   if(b.dataset.m){chosen=b.dataset.m;document.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed',c===b?'true':'false')});return}
   if(b.hasAttribute('data-rm')||b.id==='reset'){
     if(!b.hasAttribute('data-armed')){
