@@ -296,7 +296,7 @@ function caixa(){
   : dbState==='off'?offlineNote()
   : '<div class="note">Você tem acesso somente para consulta. Peça permissão de colaborador para registrar pagamentos.</div>';
   app.innerHTML='<div class="top"><button class="link" data-go="">Voltar</button></div>'+
-  '<div class="brand"><div class="logo"><img src="'+LOGO+'" alt="Tri Lanches"></div><div><h1>Controle de caixa</h1><p class="muted">Registre o que o garçom informar.</p></div></div>'+'<div class="topact"><button class="act" data-contas="fechar">Fechar conta<span class="cnt'+(mesasCount()?'':' zero')+'" id="fbadge">'+mesasCount()+'</span></button><button class="act" id="cbtn" data-contas="open">Contas a receber<span class="cnt'+(pendCount()?'':' zero')+'" id="cbadge">'+pendCount()+'</span></button></div><h2 style="margin-top:24px">Pagamento avulso</h2>'+form+
+  '<div class="brand"><div class="logo"><img src="'+LOGO+'" alt="Tri Lanches"></div><div><h1>Controle de caixa</h1><p class="muted">Registre o que o garçom informar.</p></div></div>'+'<div class="topact"><button class="act" data-contas="fechar">Fechar conta<span class="cnt'+(mesasCount()?'':' zero')+'" id="fbadge">'+mesasCount()+'</span></button><button class="act" id="cbtn" data-contas="open">Contas a receber<span class="cnt'+(pendCount()?'':' zero')+'" id="cbadge">'+pendCount()+'</span></button><button class="act" data-contas="hist" style="grid-column:1/-1">Histórico de mesas e viagens<span class="cnt'+(histCount()?'':' zero')+'" id="hbadge">'+histCount()+'</span></button></div><h2 style="margin-top:24px">Pagamento avulso</h2>'+form+
   '<button class="big alt" data-go="pagamentos">Pagamentos da noite</button>';
   var m=document.getElementById('mesa');if(m)m.focus();
 }
@@ -465,7 +465,7 @@ function pedHead(){
   var isV=pedMesa==='Viagem',o=isV?null:mesaData()[mkey(pedMesa)],lab=role==='caixa'?'Fechar conta':'Enviar mesa para o caixa',lg=String(pedMesa).length>3;
   return '<button class="link" data-pback="1">← Trocar mesa</button><div class="center"><p class="muted">'+(isV?'Pedido para viagem':'Lançando na mesa')+'</p><div class="bigmesa'+(lg?' long':'')+'" style="font-size:'+(lg?'2.6rem':'3.6rem')+'">'+esc(pedMesa)+'</div>'+
   (o?'<p class="muted">Conta atual: <b>'+brl(o.tot)+'</b> · '+plural(o.qty,'item','itens')+'</p>':(isV?'<p class="muted">Cada pedido de viagem é separado.</p>':'<p class="muted">Mesa livre</p>'))+'</div>'+
-  (isV?'<label for="pcli" style="margin-top:12px">Nome do cliente</label><input id="pcli" type="text" autocomplete="off" maxlength="30" placeholder="Quem vai retirar o pedido" value="'+esc(pedCliente)+'">':'')+(o?'<button class="big alt" id="penviar" data-label="'+lab+'" style="margin:12px 0 4px;font-size:1.05rem;padding:14px">'+lab+'</button>'+(role==='caixa'?'':'<p class="muted" style="text-align:center;margin-bottom:4px">Libera a mesa para novos clientes. O caixa recebe depois.</p>')+'<div class="msg" id="fmsg" role="alert"></div>':'');
+  (isV?'<label for="pcli" style="margin-top:12px">Nome do cliente</label><input id="pcli" type="text" autocomplete="off" maxlength="30" placeholder="Quem vai retirar o pedido" value="'+esc(pedCliente)+'">':'')+(o?'<button class="big alt" data-somar="'+esc(mkey(pedMesa))+'" style="margin:12px 0 0;font-size:1.05rem;padding:14px">Somar conta</button><button class="big alt" id="penviar" data-label="'+lab+'" style="margin:12px 0 4px;font-size:1.05rem;padding:14px">'+lab+'</button>'+(role==='caixa'?'':'<p class="muted" style="text-align:center;margin-bottom:4px">Libera a mesa para novos clientes. O caixa recebe depois.</p>')+'<div class="msg" id="fmsg" role="alert"></div>':'');
 }
 function pedidos(){
   if(!pedMesa){
@@ -519,6 +519,7 @@ async function closeAccount(b,key){
   b.disabled=true;var ts=Date.now(),cid='c'+ts;
   try{
     await Promise.all(o.lines.map(function(l){return db.doc('itens/'+l.id).update({closed:true,closedAt:ts,conta:cid,closedBy:userName||''})}));
+    if(cOpen)closeContas();
     if(role==='caixa'){toast('Conta da mesa '+o.table+' fechada · '+brl(o.tot));location.hash='#/conta/'+encodeURIComponent(cid)}
     else{
       toast('Mesa '+o.table+' enviada para o caixa · '+brl(o.tot),2800);
@@ -656,6 +657,7 @@ function mesaDetalhe(){
   }).join('');
   app.innerHTML=backBtn('mesas','Voltar às mesas')+'<div class="center"><p class="muted">Conta da mesa</p><div class="bigmesa'+(String(o.table).length>3?' long':'')+'">'+esc(o.table)+'</div></div>'+
   '<div class="card" style="margin-top:14px">'+its+'<div class="item"><b>Total da conta</b><b class="gt">'+brl(o.tot)+'</b></div></div>'+
+  '<button class="big alt" data-somar="'+esc(o.key)+'" style="margin-top:14px;font-size:1.05rem;padding:14px">Somar conta</button>'+
   (role==='caixa'?'<button class="submit" id="fechar" data-label="Fechar conta" style="margin-top:14px">Fechar conta</button><p class="muted" style="margin-top:8px">Encerra a conta e tira a mesa da lista. Os itens ficam guardados.</p><div class="msg" id="fmsg" role="alert"></div>':'<button class="submit" id="fechar" data-label="Enviar para o caixa" style="margin-top:14px">Enviar para o caixa</button><p class="muted" style="margin-top:8px">Libera a mesa para novos clientes. O caixa recebe o pagamento depois.</p><div class="msg" id="fmsg" role="alert"></div>')+
   '<button class="big alt" data-newmesa="'+esc(o.table)+'">Adicionar itens a esta mesa</button>';
 }
@@ -678,6 +680,7 @@ function subscribeLines(id){
     lines=sn.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,name:x.name,price:Number(x.price)||0,qty:Number(x.qty)||1,obs:x.obs||'',by:x.by||'',closed:!!x.closed,conta:x.conta||'',closedAt:x.closedAt||0,closedBy:x.closedBy||'',viagem:!!x.viagem,cliente:x.cliente||'',quitada:!!x.quitada,recebido:!!x.recebido,cancelado:!!x.cancelado,canceladoBy:x.canceladoBy||'',cat:x.cat||'',pedido:x.pedido||'',kstatus:x.kstatus||'',kReadyAt:x.kReadyAt||0,ts:x.ts||0}}).sort(function(a,b){return a.ts-b.ts});
     cancLines=lines.filter(function(l){return l.cancelado});lines=lines.filter(function(l){return !l.cancelado});
     notifyNew();notifyKitchen();notifyReady();notifyCancel();
+    if(cOpen&&cMode==='somar')modalBody();
     if(view==='mesas')mesas();else if(view==='pedidos')updPedLive();else if(view==='cozinha')cozinha();else refreshContas();
   },function(){});
 }
@@ -728,7 +731,7 @@ function handlePed(b){
 }
 document.addEventListener('input',function(ev){
   var t=ev.target,d=t.dataset||{};
-  if(t.id==='pmesa')pedMesa=t.value;else if(t.id==='sq')stQty=t.value;else if(t.id==='sn')stNote=t.value;else if(t.id==='pcli')pedCliente=t.value;else if(t.id==='pbusca'){pedBusca=t.value;updItems()}else if(t.id==='msq'){mSearch=t.value;var mg=document.getElementById('mgrid');if(mg)mg.innerHTML=gridHtml()}else if(t.id==='fsq'){fSearch=t.value;var fg=document.getElementById('fgrid');if(fg)fg.innerHTML=fGrid()}else if(t.id==='stq'){stSearch=t.value;var el=document.getElementById('stlist');if(el)el.innerHTML=stockList()}
+  if(t.id==='pmesa')pedMesa=t.value;else if(t.id==='sq')stQty=t.value;else if(t.id==='sn')stNote=t.value;else if(t.id==='pcli')pedCliente=t.value;else if(t.id==='pbusca'){pedBusca=t.value;updItems()}else if(t.id==='hsq'){hSearch=t.value;var hl=document.getElementById('hlist');if(hl)hl.innerHTML=histList();var hs=document.getElementById('hsum');if(hs)hs.innerHTML=histSum()}else if(t.id==='msq'){mSearch=t.value;var mg=document.getElementById('mgrid');if(mg)mg.innerHTML=gridHtml()}else if(t.id==='fsq'){fSearch=t.value;var fg=document.getElementById('fgrid');if(fg)fg.innerHTML=fGrid()}else if(t.id==='stq'){stSearch=t.value;var el=document.getElementById('stlist');if(el)el.innerHTML=stockList()}
   else if(d.obs){var c=cart.filter(function(x){return x.id===d.obs})[0];if(c)c.obs=t.value}
 });
 document.addEventListener('change',function(ev){
@@ -837,6 +840,49 @@ function contasData(){
   Object.keys(C).forEach(function(k){C[k].rest=r2(C[k].tot-C[k].pago)});
   return C;
 }
+var hTab='todos',hSearch='';
+function histData(){
+  var C=contasData(),a=Object.keys(C).map(function(k){return C[k]}).filter(function(o){return o.rest<=0&&o.pays.length});
+  a.forEach(function(o){o.paidAt=Math.max.apply(null,o.pays.map(function(p){return p.ts}))});
+  a.sort(function(x,y){return y.paidAt-x.paidAt});
+  var m=a.filter(function(o){return !o.viagem}),v=a.filter(function(o){return o.viagem}),q=norm(hSearch).replace(/\s+/g,'');
+  var base=hTab==='mesas'?m:hTab==='viagem'?v:a,l=q?base.filter(function(o){return norm(o.label||o.table).replace(/\s+/g,'').indexOf(q)>-1}):base;
+  return {all:a,m:m,v:v,l:l};
+}
+function histCount(){return histData().all.length}
+function histRow(o){
+  var ms=[];o.pays.forEach(function(p){if(ms.indexOf(p.method)<0)ms.push(p.method)});
+  return '<button class="rb" data-go="conta/'+encodeURIComponent(o.id)+'"><span><b>'+esc(mesaLabel(o.label||o.table))+'</b><small>'+(o.viagem?'Pedido às ':'Fechada às ')+hm(o.closedAt)+' · paga às '+hm(o.paidAt)+' · '+esc(ms.join(', '))+'</small></span><span class="rr"><b>'+brl(o.tot)+'</b><small>quitada</small></span></button>';
+}
+function histSum(){
+  var H=histData(),t=H.l.reduce(function(s,o){return r2(s+o.tot)},0);
+  return '<p class="muted" style="margin:12px 0 8px">'+plural(H.l.length,'pedido pago','pedidos pagos')+' · total <b>'+brl(t)+'</b></p>';
+}
+function histList(){
+  var H=histData();
+  return H.l.length?'<div class="card">'+H.l.map(histRow).join('')+'</div>':'<div class="note">'+(hSearch.trim()?'Nenhum pedido pago com “'+esc(hSearch.trim())+'”.':'Nenhum pedido pago nesta noite ainda.')+'</div>';
+}
+function histBody(){
+  var H=histData(),tb=document.getElementById('ctabs');
+  tb.hidden=false;tb.style.gridTemplateColumns='repeat(3,1fr)';
+  tb.innerHTML=[['todos','Todos',H.all.length],['mesas','Mesas',H.m.length],['viagem','Viagem',H.v.length]].map(function(t){return '<button data-htab="'+t[0]+'" aria-current="'+(hTab===t[0]?'page':'false')+'">'+t[1]+' ('+t[2]+')</button>'}).join('');
+  var ae=document.activeElement&&document.activeElement.id;
+  document.getElementById('cbody').innerHTML='<input id="hsq" type="search" inputmode="search" placeholder="Pesquisar mesa ou cliente" autocomplete="off" aria-label="Pesquisar" value="'+esc(hSearch)+'" style="margin:12px 0 0"><div id="hsum">'+histSum()+'</div><div id="hlist">'+histList()+'</div>';
+  if(ae==='hsq'){var e=document.getElementById('hsq');if(e){e.focus();try{e.setSelectionRange(1e4,1e4)}catch(x){}}}
+}
+var sKey='',sN=1;
+function somarHtml(){
+  var o=mesaData()[sKey];
+  if(!o)return '<div class="note" style="margin-top:12px">Esta mesa não tem itens em aberto.</div>';
+  var G={};o.lines.forEach(function(l){var k=l.name+'|'+l.price,g=G[k]||(G[k]={name:l.name,price:l.price,qty:0,sub:0});g.qty+=l.qty;g.sub=r2(g.sub+l.price*l.qty)});
+  var rows=Object.keys(G).map(function(k){return G[k]}).sort(function(a,b){return a.name.localeCompare(b.name,'pt-BR')});
+  var lab=role==='caixa'?'Fechar conta':'Enviar mesa para o caixa',per=sN>1?r2(o.tot/sN):0,diff=sN>1?r2(o.tot-per*sN):0;
+  return '<div class="center"><p class="muted" style="margin-top:6px">Conta da mesa</p><div class="bigmesa'+(String(o.table).length>3?' long':'')+'" style="font-size:'+(String(o.table).length>3?'2.4rem':'3rem')+'">'+esc(o.table)+'</div></div>'+
+  '<div class="card" style="margin-top:8px">'+rows.map(function(g){return '<div class="item"><div><b>'+g.qty+'× '+esc(g.name)+'</b><small>'+brl(g.price)+' cada</small></div><b>'+brl(g.sub)+'</b></div>'}).join('')+'<div class="item"><b>Total da conta</b><b class="gt">'+brl(o.tot)+'</b></div></div>'+
+  '<div class="card" style="margin-top:12px"><div class="item" style="border:0;padding:0"><b>Dividir por</b><div class="qty"><button type="button" data-sdiv="-1" aria-label="Menos uma pessoa">−</button><b>'+sN+'</b><button type="button" data-sdiv="1" aria-label="Mais uma pessoa">+</button></div></div>'+
+  (sN>1?'<p style="margin-top:10px"><b>'+brl(per)+'</b> por pessoa'+(diff!==0?'<span class="muted"> (arredondado; diferença de '+brl(Math.abs(diff))+' no total)</span>':'')+'</p>':'')+'</div>'+
+  '<button class="submit" data-somsend="'+esc(sKey)+'" data-label="'+lab+'" style="margin-top:14px">'+lab+'</button><div class="msg" id="fmsg" role="alert"></div>';
+}
 var cOpen=false,cTab='pend',cFocus=null;
 var cMode='contas',fmSel='',fSearch='';
 function mesasCount(){return Object.keys(mesaData()).length}
@@ -859,12 +905,14 @@ function fGrid(){
 function pendCount(){var C=contasData();return Object.keys(C).filter(function(k){return C[k].rest>0}).length}
 function modalBody(){
   var tt=document.getElementById('cmt'),tb=document.getElementById('ctabs');
+  if(cMode==='somar'){tt.textContent='Somar conta';tb.hidden=true;document.getElementById('cbody').innerHTML=somarHtml();return}
+  if(cMode==='hist'){tt.textContent='Histórico da noite';histBody();return}
   if(cMode==='gasto'){tt.textContent=gEdit?'Editar gasto':'Novo gasto';tb.hidden=true;document.getElementById('cbody').innerHTML=gFormHtml();return}
   if(cMode==='gastoDet'){tt.textContent='Gasto';tb.hidden=true;document.getElementById('cbody').innerHTML=gDetHtml();gLoadFoto();return}
   if(cMode==='importar'){tt.textContent='Colar lançamentos';tb.hidden=true;document.getElementById('cbody').innerHTML=gImpHtml();return}
   if(cMode==='mesa'){tt.textContent='Adicionar mesa';tb.hidden=true;document.getElementById('cbody').innerHTML=mesaModalBody();return}
   if(cMode==='fechar'){var ae=document.activeElement&&document.activeElement.id;tt.textContent='Fechar conta';tb.hidden=true;document.getElementById('cbody').innerHTML=fecharBody();if(ae==='fsq'){var fe=document.getElementById('fsq');if(fe){fe.focus();try{fe.setSelectionRange(1e4,1e4)}catch(x){}}}return}
-  tt.textContent='Contas';tb.hidden=false;
+  tt.textContent='Contas';tb.hidden=false;tb.style.gridTemplateColumns='';
   var C=contasData(),a=Object.keys(C).map(function(k){return C[k]});
   var pend=a.filter(function(o){return o.rest>0}).sort(function(x,y){return x.closedAt-y.closedAt}),paid=a.filter(function(o){return o.rest<=0}).sort(function(x,y){return y.closedAt-x.closedAt});
   document.getElementById('ctabs').innerHTML='<button data-ctab="pend" aria-current="'+(cTab==='pend'?'page':'false')+'">A receber ('+pend.length+')</button><button data-ctab="paid" aria-current="'+(cTab==='paid'?'page':'false')+'">Quitadas ('+paid.length+')</button>';
@@ -877,6 +925,11 @@ function closeContas(){var m=document.getElementById('cmodal');cOpen=false;if(m)
 function handleCx(b){
   var d=b.dataset;
   if(d.contas==='open'){openContas('contas');return true}
+  if(d.somar!==undefined){sKey=d.somar;sN=1;openContas('somar');return true}
+  if(d.sdiv){sN=Math.max(1,Math.min(30,sN+Number(d.sdiv)));modalBody();return true}
+  if(d.somsend){if(arm(b))return true;closeAccount(b,d.somsend);return true}
+  if(d.contas==='hist'){hTab='todos';hSearch='';openContas('hist');return true}
+  if(d.htab){hTab=d.htab;modalBody();return true}
   if(d.contas==='mesa'){openContas('mesa');return true}
   if(d.addmesa){addMesa();return true}
   if(d.rmmesa){if(arm(b))return true;extraMesas=extraMesas.filter(function(x){return x!==d.rmmesa});saveMesas();modalBody();if(view==='pedidos'&&!pedMesa)updPedLive();return true}
@@ -1261,7 +1314,7 @@ function updConta(){
   if(f&&((o.rest<=0&&has)||(o.rest>0&&!has)))f.innerHTML=contaForm(o);
 }
 function refreshContas(){
-  if(view==='caixa'){var bg=document.getElementById('cbadge');if(bg){var n=pendCount();bg.textContent=n;bg.className='cnt'+(n?'':' zero')}var fb=document.getElementById('fbadge');if(fb){var m=mesasCount();fb.textContent=m;fb.className='cnt'+(m?'':' zero')}if(cOpen)modalBody()}
+  if(view==='caixa'){var bg=document.getElementById('cbadge');if(bg){var n=pendCount();bg.textContent=n;bg.className='cnt'+(n?'':' zero')}var hb=document.getElementById('hbadge');if(hb){var hn=histCount();hb.textContent=hn;hb.className='cnt'+(hn?'':' zero')}var fb=document.getElementById('fbadge');if(fb){var m=mesasCount();fb.textContent=m;fb.className='cnt'+(m?'':' zero')}if(cOpen)modalBody()}
   else if(view==='conta'){if(!document.getElementById('cinfo'))contaDetalhe();else updConta()}
 }
 async function payConta(ev){
