@@ -1603,6 +1603,7 @@ function startApp(){
 }
 async function init(){
   document.body.dataset.mode=window.CAIXA_MODE;
+  if(location.hash&&location.hash!=='#/'){try{history.replaceState(null,'',location.href.split('#')[0]+'#/')}catch(e){}}
   route();
   var d=null;try{d=await claude.use('db')}catch(e){}
   if(!d){dbState='off';authState=window.CAIXA_MODE==='firestore'?'offline':'ok';route();return}
