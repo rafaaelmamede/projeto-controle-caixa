@@ -309,7 +309,7 @@ function caixa(){
   : dbState==='off'?offlineNote()
   : '<div class="note">Você tem acesso somente para consulta. Peça permissão de colaborador para registrar pagamentos.</div>';
   app.innerHTML='<div class="top"><button class="link" data-go="">Voltar</button></div>'+
-  '<div class="brand"><div class="logo"><img src="'+LOGO+'" alt="Tri Lanches"></div><div><h1>Controle de caixa</h1><p class="muted">Registre o que o garçom informar.</p></div></div>'+'<div class="topact"><button class="act" data-contas="fechar">Fechar conta<span class="cnt'+(mesasCount()?'':' zero')+'" id="fbadge">'+mesasCount()+'</span></button><button class="act" id="cbtn" data-contas="open">Contas a receber<span class="cnt'+(pendCount()?'':' zero')+'" id="cbadge">'+pendCount()+'</span></button><button class="act" data-contas="hist" style="grid-column:1/-1">Histórico de mesas e viagens<span class="cnt'+(histCount()?'':' zero')+'" id="hbadge">'+histCount()+'</span></button></div><h2 style="margin-top:24px">Pagamento avulso</h2>'+form+
+  '<div class="brand"><div class="logo"><img src="'+LOGO+'" alt="Tri Lanches"></div><div><h1>Controle de caixa</h1><p class="muted">Registre o que o garçom informar.</p></div></div>'+'<div class="topact"><button class="act" data-contas="fechar">Fechar conta<span class="cnt'+(mesasCount()?'':' zero')+'" id="fbadge">'+mesasCount()+'</span></button><button class="act" id="cbtn" data-contas="open">Contas a receber<span class="cnt'+(pendCount()?'':' zero')+'" id="cbadge">'+pendCount()+'</span></button><button class="act" data-contas="hist" style="grid-column:1/-1">Histórico de mesas e viagens<span class="cnt'+(histCount()?'':' zero')+'" id="hbadge">'+histCount()+'</span></button><button class="act" data-contas="fiado" style="grid-column:1/-1">Fiado de clientes<span class="cnt'+(fiCount()?'':' zero')+'" id="fibadge">'+fiCount()+'</span></button></div><h2 style="margin-top:24px">Pagamento avulso</h2>'+form+
   '<button class="big alt" data-go="pagamentos">Pagamentos da noite</button>';
   var m=document.getElementById('mesa');if(m)m.focus();
 }
@@ -458,7 +458,7 @@ function mesaData(){
   return M;
 }
 var cartMesa='',seenC=null;
-function mesaLabel(t){return /^viagem/i.test(String(t))?String(t):'Mesa '+t}
+function mesaLabel(t){return /^(viagem|fiado)/i.test(String(t))?String(t):'Mesa '+t}
 var extraMesas=[],pedCliente='';
 function numSort(a,b){return String(a).localeCompare(String(b),'pt-BR',{numeric:true})}
 function allMesasList(){var a=[];for(var i=1;i<=11;i++)a.push(String(i));extraMesas.slice().sort(numSort).forEach(function(m){a.push(m)});return a}
@@ -583,7 +583,7 @@ function notifyNew(){
   toast(parts.join(' · ')+(soundOn&&!ok?' · toque na tela para ativar o som':''),4500);
   if(soundOn){try{if(navigator.vibrate)navigator.vibrate([180,90,180])}catch(x){}}
 }
-function crow(o){var how=o.viagem?'Pedido às ':(o.by==='Salão'?'Enviada pelo salão às ':'Fechada às ');return '<button class="rb" data-go="conta/'+encodeURIComponent(o.id)+'"><span><b>'+esc(mesaLabel(o.label||o.table))+'</b><small>'+how+hm(o.closedAt)+(o.rest>0&&o.pago>0?' · pago '+brl(o.pago):'')+'</small></span><span class="rr"><b>'+brl(o.rest>0?o.rest:o.tot)+'</b><small>'+(o.rest>0?'a receber':'quitada')+'</small></span></button>'}
+function crow(o){var how=o.viagem?'Pedido às ':(o.by==='Salão'?'Enviada pelo salão às ':'Fechada às ');return '<button class="rb" data-go="conta/'+encodeURIComponent(o.id)+'"><span><b>'+esc(mesaLabel(o.label||o.table))+'</b><small>'+how+hm(o.closedAt)+(o.rest>0&&o.pago>0?' · pago '+brl(o.pago):'')+'</small></span><span class="rr"><b>'+brl(o.rest>0?o.rest:o.tot)+'</b><small>'+(o.rest>0?'a receber':(o.fiadoVal>0?'quitada · fiado '+brl(o.fiadoVal):'quitada'))+'</small></span></button>'}
 var pedBusca='',seenCV=null;
 function itemRow(m,showCat){return '<button class="rb" data-add="'+esc(m.id)+'"><span><b>'+(m.code?esc(m.code)+' · ':'')+esc(m.name)+'</b>'+(m.desc?'<small>'+esc(m.desc)+'</small>':'')+(showCat?'<small>'+esc(m.cat)+'</small>':'')+'</span><b>'+brl(m.price)+'</b></button>'}
 function updItems(){
@@ -697,6 +697,7 @@ function mesaDetalhe(){
   app.innerHTML=backBtn('mesas','Voltar às mesas')+'<div class="center"><p class="muted">Conta da mesa</p><div class="bigmesa'+(String(o.table).length>3?' long':'')+'">'+esc(o.table)+'</div></div>'+
   '<div class="card" style="margin-top:14px">'+its+'<div class="item"><b>Total da conta</b><b class="gt">'+brl(o.tot)+'</b></div></div>'+
   '<button class="big alt" data-somar="'+esc(o.key)+'" style="margin-top:14px;font-size:1.05rem;padding:14px">Somar conta</button>'+
+  (role==='caixa'?'<button class="big alt" data-pconta="mesa|'+esc(o.key)+'" style="margin-top:14px;font-size:1.05rem;padding:14px">Imprimir conta</button>':'')+
   (role==='caixa'?'<button class="submit" id="fechar" data-label="Fechar conta" style="margin-top:14px">Fechar conta</button><p class="muted" style="margin-top:8px">Encerra a conta e tira a mesa da lista. Os itens ficam guardados.</p><div class="msg" id="fmsg" role="alert"></div>':'<button class="submit" id="fechar" data-label="Enviar para o caixa" style="margin-top:14px">Enviar para o caixa</button><p class="muted" style="margin-top:8px">Libera a mesa para novos clientes. O caixa recebe o pagamento depois.</p><div class="msg" id="fmsg" role="alert"></div>')+
   '<button class="big alt" data-newmesa="'+esc(o.table)+'">Adicionar itens a esta mesa</button>';
 }
@@ -776,7 +777,7 @@ function handlePed(b){
 }
 document.addEventListener('input',function(ev){
   var t=ev.target,d=t.dataset||{};
-  if(t.id==='pmesa')pedMesa=t.value;else if(t.id==='sq')stQty=t.value;else if(t.id==='sp')stPaid=t.value;else if(t.id==='sn')stNote=t.value;else if(t.id==='pcli')pedCliente=t.value;else if(t.id==='pbusca'){pedBusca=t.value;updItems()}else if(t.id==='hsq'){hSearch=t.value;var hl=document.getElementById('hlist');if(hl)hl.innerHTML=histList();var hs=document.getElementById('hsum');if(hs)hs.innerHTML=histSum()}else if(t.id==='msq'){mSearch=t.value;var mg=document.getElementById('mgrid');if(mg)mg.innerHTML=gridHtml()}else if(t.id==='fsq'){fSearch=t.value;var fg=document.getElementById('fgrid');if(fg)fg.innerHTML=fGrid()}else if(t.id==='stq'){stSearch=t.value;var el=document.getElementById('stlist');if(el)el.innerHTML=stockList()}else if(t.id==='fchq'){fchSearch=t.value;var fl=document.getElementById('fchlist');if(fl)fl.innerHTML=fichasList()}
+  if(t.id==='pmesa')pedMesa=t.value;else if(t.id==='sq')stQty=t.value;else if(t.id==='sp')stPaid=t.value;else if(t.id==='sn')stNote=t.value;else if(t.id==='pcli')pedCliente=t.value;else if(t.id==='pbusca'){pedBusca=t.value;updItems()}else if(t.id==='hsq'){hSearch=t.value;var hl=document.getElementById('hlist');if(hl)hl.innerHTML=histList();var hs=document.getElementById('hsum');if(hs)hs.innerHTML=histSum()}else if(t.id==='msq'){mSearch=t.value;var mg=document.getElementById('mgrid');if(mg)mg.innerHTML=gridHtml()}else if(t.id==='fsq'){fSearch=t.value;var fg=document.getElementById('fgrid');if(fg)fg.innerHTML=fGrid()}else if(t.id==='stq'){stSearch=t.value;var el=document.getElementById('stlist');if(el)el.innerHTML=stockList()}else if(t.id==='fchq'){fchSearch=t.value;var fl=document.getElementById('fchlist');if(fl)fl.innerHTML=fichasList()}else if(t.id==='fisq'){fiSearch=t.value;var fil=document.getElementById('filist');if(fil)fil.innerHTML=fiadoList()}
   else if(d.obs){var c=cart.filter(function(x){return x.u===d.obs})[0];if(c)c.obs=t.value}
 });
 document.addEventListener('change',function(ev){
@@ -925,11 +926,145 @@ function editItem(t,d){
   saveItems();syncFichaItem(it);
 }
 
+/* ===== Fiado, conta impressa e reabrir conta ===== */
+var fiados=[],fiSel='',fiSearch='';
+function fiKey(n){return norm(String(n)).replace(/\s+/g,' ').trim()}
+function newFid(){return 'f'+Date.now()+Math.random().toString(36).slice(2,6)}
+function fiadoClientes(){var M={};fiados.forEach(function(f){var k=f.ckey||fiKey(f.cliente),c=M[k]||(M[k]={key:k,nome:f.cliente,saldo:0,ult:0,movs:[]});if(f.ts>=c.ult){c.ult=f.ts;c.nome=f.cliente}c.saldo=r2(c.saldo+(f.tipo==='d'?f.value:-f.value));c.movs.push(f)});return M}
+function fiadoDevedores(){var M=fiadoClientes();return Object.keys(M).map(function(k){return M[k]}).filter(function(c){return c.saldo>0.004})}
+function fiCount(){return fiadoDevedores().length}
+function logAudit(tipo,d){if(!db)return;try{Promise.resolve(db.collection('auditoria').add(Object.assign({tipo:tipo,by:userName||'',ts:Date.now(),night:nightId},d||{}))).catch(function(){})}catch(e){}}
+function fiadoList(){
+  var q=fiKey(fiSearch),all=fiadoDevedores(),l=all.filter(function(c){return !q||c.key.indexOf(q)>-1}).sort(function(a,b){return b.saldo-a.saldo});
+  var tot=all.reduce(function(t,c){return r2(t+c.saldo)},0);
+  if(!l.length)return '<div class="note" style="margin-top:12px">'+(q?'Nenhum cliente com “'+esc(fiSearch.trim())+'”.':'Nenhum cliente com fiado em aberto.')+'</div>';
+  return '<p class="muted" style="margin:12px 0 8px">Total a receber: <b>'+brl(tot)+'</b></p><div class="card">'+l.map(function(c){return '<button class="rb" data-fisel="'+esc(c.key)+'"><span><b>'+esc(c.nome)+'</b><small>Último movimento em '+fdate(c.ult)+'</small></span><span class="rr"><b>'+brl(c.saldo)+'</b><small>deve</small></span></button>'}).join('')+'</div>';
+}
+function fiadoBody(){
+  var M=fiadoClientes(),c=fiSel&&M[fiSel];
+  if(!c){fiSel='';return '<input id="fisq" type="search" inputmode="search" placeholder="Pesquisar cliente" autocomplete="off" aria-label="Pesquisar cliente" value="'+esc(fiSearch)+'" style="margin:12px 0 0"><div id="filist">'+fiadoList()+'</div><p class="muted" style="margin-top:12px">Para lançar um fiado, abra a conta e use o botão “Lançar no fiado”.</p>'}
+  var mv=c.movs.slice().sort(function(a,b){return b.ts-a.ts}).map(function(f){return '<div class="item"><div><b>'+(f.tipo==='d'?esc(mesaLabel(f.table||'Conta')):'Pagamento · '+esc(f.method))+'</b><small>'+fdate(f.ts)+' '+hm(f.ts)+(f.itens?' · '+esc(f.itens):'')+'</small></div><b>'+(f.tipo==='d'?'+ ':'− ')+brl(f.value)+'</b></div>'}).join('');
+  var form=c.saldo>0.004?'<div class="card" style="margin-top:12px"><label for="fival">Valor recebido (R$)</label><input id="fival" type="text" inputmode="decimal" autocomplete="off" value="'+fmtIn(c.saldo)+'" style="margin-bottom:14px"><label id="flm">Forma de pagamento</label><div class="chips" role="group" aria-labelledby="flm">'+METHODS.map(function(m){return '<button type="button" class="chip" aria-pressed="'+(chosen===m)+'" data-m="'+m+'">'+m+'</button>'}).join('')+'</div><button class="submit" type="button" data-firec="1">Registrar recebimento</button><div class="msg" id="fimsg" role="status"></div></div>':'<div class="note" style="margin-top:12px"><b>Sem saldo em aberto.</b></div>';
+  return '<button class="link" data-fiback="1">← Clientes</button><div class="center"><p class="muted">Cliente</p><h1 style="margin:4px 0">'+esc(c.nome)+'</h1><p class="muted">Saldo devedor</p><div class="total">'+brl(Math.max(c.saldo,0))+'</div></div>'+form+'<h2>Movimentações</h2><div class="card">'+mv+'</div>';
+}
+function fiadoCard(o){
+  if(role!=='caixa'||o.rest<=0)return '';
+  var M=fiadoClientes(),opts=Object.keys(M).map(function(k){return '<option value="'+esc(M[k].nome)+'">'}).join('');
+  return '<div class="card" style="margin-top:12px"><label for="fcli">Cliente (fiado)</label><input id="fcli" type="text" list="fcl" autocomplete="off" placeholder="Nome do cliente" value="'+esc(o.cliente||'')+'" style="margin-bottom:14px"><datalist id="fcl">'+opts+'</datalist><label for="fval">Valor no fiado (R$)</label><input id="fval" type="text" inputmode="decimal" autocomplete="off" value="'+fmtIn(o.rest)+'" style="margin-bottom:14px"><button class="big alt" type="button" data-filancar="1" style="margin:0;font-size:1.05rem;padding:14px">Lançar no fiado</button><div class="msg" id="fmsg2" role="status"></div></div>';
+}
+async function lancarFiado(b){
+  var o=contasData()[viewArg],msg=document.getElementById('fmsg2');
+  function fail(s){msg.className='msg err';msg.textContent=s}
+  if(!o)return fail('Conta não encontrada.');
+  var nome=String(document.getElementById('fcli').value||'').replace(/\s+/g,' ').trim();
+  if(!nome)return fail('Informe o nome do cliente.');
+  var v=parseValue(document.getElementById('fval').value);
+  if(v===null)return fail('Informe um valor maior que zero, como 45,50.');
+  if(v>o.rest+0.004)return fail('O valor é maior que o restante ('+brl(o.rest)+').');
+  if(!db)return fail('Sem conexão com o armazenamento compartilhado.');
+  var ex=fiadoClientes()[fiKey(nome)];if(ex)nome=ex.nome;
+  b.disabled=true;var ts=Date.now(),fid=newFid(),left=r2(o.rest-v);
+  try{
+    await db.doc('fiado/'+fid).set({tipo:'d',cliente:nome,ckey:fiKey(nome),value:v,conta:o.id,table:o.label||o.table,itens:o.lines.map(function(l){return l.qty+'x '+l.name}).join(', ').slice(0,280),night:nightId,ts:ts,by:userName||''});
+    if(o.viagem){
+      try{await Promise.all(o.lines.map(function(l){return db.doc('itens/'+l.id).update({recebido:true})}))}catch(e){}
+      if(left<=0){try{await Promise.all(o.lines.map(function(l){return db.doc('itens/'+l.id).update({quitada:true,quitadaAt:Date.now()})}))}catch(e){}}
+    }
+    if(left<=0){toast(mesaLabel(o.label||o.table)+' lançada no fiado de '+nome+' · '+brl(v),3000);location.hash='#/caixa'}
+    else{toast('Fiado lançado · restante '+brl(left),2800);var fv=document.getElementById('fval'),cv=document.getElementById('cvalor');if(fv)fv.value=fmtIn(left);if(cv)cv.value=fmtIn(left);msg.textContent=''}
+  }catch(e){fail('Não foi possível lançar. Tente de novo.')}
+  b.disabled=false;
+}
+async function desfazerFiado(b,id){
+  var f=fiados.filter(function(x){return x.id===id})[0];if(!f||!db)return;
+  function reset(){b.disabled=false;b.removeAttribute('data-armed');b.textContent=b.dataset.label}
+  var c=fiadoClientes()[f.ckey];
+  if(c&&c.saldo-f.value<-0.004){toast('Esse fiado já foi pago pelo cliente. Remova antes o pagamento dele.',4200);reset();return}
+  b.disabled=true;
+  try{
+    await db.doc('fiado/'+id).delete();
+    var oc=contasData()[f.conta];
+    if(oc&&oc.viagem){var sobra=oc.pays.length+oc.fiadoL.filter(function(x){return x.id!==id}).length;oc.lines.forEach(function(l){db.doc('itens/'+l.id).update(sobra?{quitada:false}:{quitada:false,recebido:false}).catch(function(){})})}
+    logAudit('desfazer-fiado',{conta:f.conta,cliente:f.cliente,valor:f.value});
+    toast('Fiado desfeito.',2500);
+  }catch(e){reset();toast('Não foi possível desfazer. Tente de novo.',3000)}
+}
+async function receberFiado(b){
+  var c=fiadoClientes()[fiSel],msg=document.getElementById('fimsg');
+  function fail(s){msg.className='msg err';msg.textContent=s}
+  if(!c)return fail('Cliente não encontrado.');
+  var v=parseValue(document.getElementById('fival').value);
+  if(v===null)return fail('Informe um valor maior que zero, como 45,50.');
+  if(v>c.saldo+0.004)return fail('O valor é maior que o saldo ('+brl(c.saldo)+').');
+  if(!chosen)return fail('Escolha a forma de pagamento.');
+  if(!db)return fail('Sem conexão com o armazenamento compartilhado.');
+  b.disabled=true;var ts=Date.now(),fid=newFid(),m=chosen;
+  try{
+    await db.doc('fiado/'+fid).set({tipo:'c',cliente:c.nome,ckey:c.key,value:v,method:m,night:nightId,ts:ts,by:userName||''});
+    try{await db.collection('pagamentos').add({night:nightId,table:'Fiado · '+c.nome,method:m,value:v,ts:ts,conta:'',fid:fid})}
+    catch(e){try{await db.doc('fiado/'+fid).delete()}catch(x){}throw e}
+    toast('Recebido de '+c.nome+' · '+m+' '+brl(v),3000);chosen=null;modalBody();
+  }catch(e){fail('Não foi possível registrar. Tente de novo.');b.disabled=false}
+}
+async function reabrirConta(b){
+  var o=contasData()[viewArg];if(!o||o.viagem||!db)return;
+  var msg=document.getElementById('rmsg');
+  function fail(s){b.disabled=false;b.removeAttribute('data-armed');b.textContent=b.dataset.label;if(msg){msg.className='msg err';msg.textContent=s}}
+  var M=fiadoClientes(),por={};(o.fiadoL||[]).forEach(function(f){por[f.ckey]=r2((por[f.ckey]||0)+f.value)});
+  for(var k in por){var cl=M[k];if(cl&&cl.saldo-por[k]<-0.004)return fail('O fiado de '+cl.nome+' já foi pago pelo cliente. Remova esse pagamento antes de reabrir.')}
+  b.disabled=true;
+  try{
+    await Promise.all(o.pays.map(function(p){return db.doc('pagamentos/'+p.id).delete()}));
+    await Promise.all((o.fiadoL||[]).map(function(f){return db.doc('fiado/'+f.id).delete()}));
+    var ts=Date.now();
+    await Promise.all(o.lines.map(function(l){return db.doc('itens/'+l.id).update({closed:false,closedAt:0,conta:'',closedBy:'',reaberta:ts,reabertaBy:userName||''})}));
+    logAudit('reabrir-conta',{conta:o.id,mesa:String(o.table),total:o.tot,pago:o.pago,fiado:o.fiadoVal||0});
+    toast('Mesa '+o.table+' reaberta · voltou para Mesas abertas',3200);location.hash='#/mesas';
+  }catch(e){fail('Não foi possível reabrir. Tente de novo.')}
+}
+function contaAcoes(o){
+  if(role!=='caixa')return '';
+  var extra=o.pago>0||(o.fiadoVal||0)>0,h='<button class="big alt" data-pconta="conta|'+esc(o.id)+'" style="margin-top:14px;font-size:1.05rem;padding:14px">Imprimir conta</button>';
+  if(!o.viagem)h+='<button class="'+(extra?'danger':'big alt')+'" data-reabrir="1" data-label="Reabrir conta" style="margin-top:14px;font-size:1.05rem;padding:14px">Reabrir conta</button><p class="muted" style="margin-top:8px">'+(extra?'Os pagamentos e o fiado desta conta serão removidos, e a mesa volta para Mesas abertas.':'A mesa volta para Mesas abertas com todos os itens.')+'</p><div class="msg" id="rmsg" role="alert"></div>';
+  return h;
+}
+function billModel(o,tipo){
+  var m={title:tipo==='mesa'?'CONFERENCIA DE CONTA':'CONTA',who:o.viagem?String(o.table).toUpperCase():'MESA '+String(o.table).toUpperCase(),cliente:o.viagem?(o.cliente||''):'',when:new Date().toLocaleDateString('pt-BR')+' '+hm(Date.now()),
+    items:o.lines.map(function(l){return {q:l.qty,n:l.name,t:r2(l.price*l.qty)}}),total:o.tot,pays:[],fiado:[],pago:0,rest:0};
+  if(tipo==='conta'){m.pays=o.pays.slice().sort(function(a,b){return a.ts-b.ts}).map(function(p){return {m:p.method,v:p.value}});m.fiado=(o.fiadoL||[]).map(function(f){return {c:f.cliente,v:f.value}});m.pago=o.pago;m.rest=Math.max(o.rest,0)}
+  return m;
+}
+function billBytes(m,cols){
+  var B=[],bar=new Array(cols+1).join('='),dash=new Array(cols+1).join('-');
+  function raw(){for(var i=0;i<arguments.length;i++)B.push(arguments[i])}
+  function ln(s){s=pxText(s);for(var i=0;i<s.length;i++)B.push(s.charCodeAt(i));B.push(10)}
+  function lr(l,r){var w=Math.max(8,cols-r.length-1),ls=pxWrap(l,w);if(!ls.length)ls=[''];ls.forEach(function(s,i){if(i<ls.length-1){ln(s);return}var sp=Math.max(1,cols-pxText(s).length-r.length);ln(s+new Array(sp+1).join(' ')+r)})}
+  raw(0x1B,0x40);raw(0x1B,0x61,1);raw(0x1B,0x45,1);ln('TRI LANCHES');raw(0x1B,0x45,0);ln(m.title);ln(bar);
+  raw(0x1D,0x21,0x11);ln(m.who);raw(0x1D,0x21,0x00);
+  if(m.cliente){raw(0x1B,0x45,1);pxWrap(m.cliente,cols).forEach(function(s){ln(s)});raw(0x1B,0x45,0)}
+  ln(m.when);raw(0x1B,0x61,0);ln(dash);
+  m.items.forEach(function(it){lr(it.q+'x '+it.n,brl(it.t))});
+  ln(dash);raw(0x1B,0x45,1);lr('TOTAL',brl(m.total));raw(0x1B,0x45,0);
+  if(m.pays.length||m.fiado.length){ln(dash);m.pays.forEach(function(p){lr('Pago '+p.m,brl(p.v))});m.fiado.forEach(function(f){lr('Fiado '+f.c,brl(f.v))});if(m.rest>0.004){raw(0x1B,0x45,1);lr('RESTANTE',brl(m.rest));raw(0x1B,0x45,0)}}
+  ln(bar);raw(0x1B,0x61,1);ln('Sem valor fiscal');ln('Obrigado pela preferencia!');raw(0x1B,0x64,4);
+  return B;
+}
+function billHtml(m,cols){
+  var w=cols>=42?'80mm':'58mm';
+  function r(l,rt,cls){return '<div class="r'+(cls?' '+cls:'')+'"><span>'+esc(l)+'</span><span>'+esc(rt)+'</span></div>'}
+  return '<!doctype html><html><head><meta charset="utf-8"><title>Conta</title><style>@page{size:'+w+' auto;margin:0}*{box-sizing:border-box}body{margin:0;padding:2mm 3mm 6mm;width:'+w+';font:bold 13px/1.3 "Courier New",monospace;color:#000}.c{text-align:center}.t{font-size:16px}.big{font-size:26px;line-height:1.1;margin:4px 0}.hr{border-top:2px dashed #000;margin:5px 0}.r{display:flex;justify-content:space-between;gap:8px;margin:2px 0}.r span:first-child{flex:1;overflow-wrap:anywhere}.r span:last-child{white-space:nowrap}.tot{font-size:17px}.s{font-weight:normal;font-size:11px}</style></head><body>'+
+  '<div class="c t">TRI LANCHES</div><div class="c">'+esc(m.title)+'</div><div class="hr"></div><div class="c big">'+esc(m.who)+'</div>'+(m.cliente?'<div class="c">'+esc(m.cliente)+'</div>':'')+'<div class="c">'+esc(m.when)+'</div><div class="hr"></div>'+
+  m.items.map(function(it){return r(it.q+'x '+it.n,brl(it.t))}).join('')+'<div class="hr"></div>'+r('TOTAL',brl(m.total),'tot')+
+  ((m.pays.length||m.fiado.length)?'<div class="hr"></div>'+m.pays.map(function(p){return r('Pago '+p.m,brl(p.v))}).join('')+m.fiado.map(function(f){return r('Fiado '+f.c,brl(f.v))}).join('')+(m.rest>0.004?r('RESTANTE',brl(m.rest),'tot'):''):'')+
+  '<div class="hr"></div><div class="c s">Sem valor fiscal</div><div class="c">Obrigado pela preferência!</div></body></html>';
+}
+function printConta(m){var c=printCfg();if(c.mode==='rawbt'){openIntent(rawbtUrl(billBytes(m,c.cols)));return}printHtml(billHtml(m,c.cols));toast('Enviando para a impressora…',2200)}
 function contasData(){
   var C={};
-  lines.forEach(function(l){if(!l.closed||!l.conta)return;var o=C[l.conta]||(C[l.conta]={id:l.conta,table:l.table,closedAt:l.closedAt||0,by:l.closedBy||'',viagem:!!l.viagem,cliente:l.cliente||'',label:(l.viagem&&l.cliente?l.table+' · '+l.cliente:l.table),tot:0,pago:0,lines:[],pays:[]});o.tot=r2(o.tot+l.price*l.qty);o.lines.push(l)});
+  lines.forEach(function(l){if(!l.closed||!l.conta)return;var o=C[l.conta]||(C[l.conta]={id:l.conta,table:l.table,closedAt:l.closedAt||0,by:l.closedBy||'',viagem:!!l.viagem,cliente:l.cliente||'',label:(l.viagem&&l.cliente?l.table+' · '+l.cliente:l.table),tot:0,pago:0,fiadoVal:0,fiadoL:[],lines:[],pays:[]});o.tot=r2(o.tot+l.price*l.qty);o.lines.push(l)});
   payments.forEach(function(p){var o=p.conta&&C[p.conta];if(o){o.pago=r2(o.pago+p.value);o.pays.push(p)}});
-  Object.keys(C).forEach(function(k){C[k].rest=r2(C[k].tot-C[k].pago)});
+  fiados.forEach(function(f){var o=f.tipo==='d'&&f.conta&&C[f.conta];if(o){o.fiadoVal=r2(o.fiadoVal+f.value);o.fiadoL.push(f)}});
+  Object.keys(C).forEach(function(k){C[k].rest=r2(C[k].tot-C[k].pago-C[k].fiadoVal)});
   return C;
 }
 var hTab='todos',hSearch='';
@@ -982,7 +1117,7 @@ function fecharBody(){
   var M=mesaData(),ks=Object.keys(M).map(function(k){return M[k]}).sort(function(a,b){return String(a.table).localeCompare(String(b.table),'pt-BR',{numeric:true})});
   if(fmSel&&M[fmSel]){
     var o=M[fmSel],its=o.lines.map(function(l){return '<div class="item"><div><b>'+l.qty+'× '+esc(l.name)+'</b><small>'+(l.by?esc(l.by)+' · ':'')+(l.obs?esc(l.obs)+' · ':'')+hm(l.ts)+'</small></div><b>'+brl(r2(l.price*l.qty))+'</b></div>'}).join('');
-    return '<button class="link" data-fmback="1">← Outras mesas</button><div class="center"><p class="muted">Conta da mesa</p><div class="bigmesa'+(String(o.table).length>3?' long':'')+'" style="font-size:'+(String(o.table).length>3?'2.4rem':'3.4rem')+'">'+esc(o.table)+'</div></div><div class="card" style="margin-top:10px">'+its+'<div class="item"><b>Total da conta</b><b class="gt">'+brl(o.tot)+'</b></div></div><button class="submit" data-fmclose="'+esc(o.key)+'" data-label="Fechar conta" style="margin-top:12px">Fechar conta</button><p class="muted" style="margin-top:8px">Encerra a conta e leva você ao pagamento.</p><div class="msg" id="fmsg" role="alert"></div>';
+    return '<button class="link" data-fmback="1">← Outras mesas</button><div class="center"><p class="muted">Conta da mesa</p><div class="bigmesa'+(String(o.table).length>3?' long':'')+'" style="font-size:'+(String(o.table).length>3?'2.4rem':'3.4rem')+'">'+esc(o.table)+'</div></div><div class="card" style="margin-top:10px">'+its+'<div class="item"><b>Total da conta</b><b class="gt">'+brl(o.tot)+'</b></div></div><button class="big alt" data-pconta="mesa|'+esc(o.key)+'" style="margin-top:12px;font-size:1.05rem;padding:14px">Imprimir conta</button><button class="submit" data-fmclose="'+esc(o.key)+'" data-label="Fechar conta" style="margin-top:12px">Fechar conta</button><p class="muted" style="margin-top:8px">Encerra a conta e leva você ao pagamento.</p><div class="msg" id="fmsg" role="alert"></div>';
   }
   fmSel='';
   return '<p class="muted" style="margin:10px 0 0">Escolha a mesa para fechar a conta.</p><input id="fsq" type="search" inputmode="search" placeholder="Digite a mesa desejada" autocomplete="off" aria-label="Pesquisar mesa" value="'+esc(fSearch)+'" style="margin:12px 0"><div class="mgrid" id="fgrid">'+fGrid()+'</div>';
@@ -999,6 +1134,12 @@ function modalBody(){
   var tt=document.getElementById('cmt'),tb=document.getElementById('ctabs');
   if(cMode==='somar'){tt.textContent='Somar conta';tb.hidden=true;document.getElementById('cbody').innerHTML=somarHtml();return}
   if(cMode==='hist'){tt.textContent='Histórico da noite';histBody();return}
+  if(cMode==='fiado'){
+    tt.textContent='Fiado de clientes';tb.hidden=true;
+    var fae=document.activeElement&&document.activeElement.id;if(fiSel&&fae==='fival')return;
+    document.getElementById('cbody').innerHTML=fiadoBody();
+    if(fae==='fisq'){var fe=document.getElementById('fisq');if(fe){fe.focus();try{fe.setSelectionRange(1e4,1e4)}catch(x){}}}
+    return}
   if(cMode==='gasto'){tt.textContent=gEdit?'Editar gasto':'Novo gasto';tb.hidden=true;document.getElementById('cbody').innerHTML=gFormHtml();return}
   if(cMode==='gastoDet'){tt.textContent='Gasto';tb.hidden=true;document.getElementById('cbody').innerHTML=gDetHtml();gLoadFoto();return}
   if(cMode==='importar'){tt.textContent='Colar lançamentos';tb.hidden=true;document.getElementById('cbody').innerHTML=gImpHtml();return}
@@ -1016,6 +1157,14 @@ function openContas(mode){cMode=mode||'contas';if(cMode==='contas')cTab='pend';v
 function closeContas(){var m=document.getElementById('cmodal');cOpen=false;if(m)m.hidden=true;document.body.classList.remove('modal-open');if(cFocus&&cFocus.isConnected&&cFocus.focus)cFocus.focus();cFocus=null}
 function handleCx(b){
   var d=b.dataset;
+  if(d.pconta){var pp=d.pconta.split('|'),pk=pp.slice(1).join('|'),src=pp[0]==='mesa'?mesaData()[pk]:contasData()[pk];if(src)printConta(billModel(src,pp[0]));return true}
+  if(d.contas==='fiado'){fiSel='';fiSearch='';chosen=null;openContas('fiado');return true}
+  if(d.fisel!==undefined){fiSel=d.fisel;chosen=null;modalBody();return true}
+  if(d.fiback){fiSel='';modalBody();return true}
+  if(d.firec){receberFiado(b);return true}
+  if(d.filancar){lancarFiado(b);return true}
+  if(d.fidesfaz){if(arm(b))return true;desfazerFiado(b,d.fidesfaz);return true}
+  if(d.reabrir){if(arm(b))return true;reabrirConta(b);return true}
   if(d.contas==='open'){openContas('contas');return true}
   if(d.somar!==undefined){sKey=d.somar;sN=1;openContas('somar');return true}
   if(d.sdiv){sN=Math.max(1,Math.min(30,sN+Number(d.sdiv)));modalBody();return true}
@@ -1383,7 +1532,7 @@ var PDEF={mode:'off',cols:32,auto:true,since:0},pOpen=false,printBusy=false,prin
 function printCfg(){try{return Object.assign({},PDEF,JSON.parse(localStorage.getItem('caixa:print')||'{}'))}catch(e){return Object.assign({},PDEF)}}
 function savePrintCfg(c){try{localStorage.setItem('caixa:print',JSON.stringify(c))}catch(e){}}
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
-function pxText(s){return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7E]/g,'?')}
+function pxText(s){return String(s).replace(/[\u00a0\u202f]/g,' ').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7E]/g,'?')}
 function pxWrap(s,n){
   var out=[],cur='';
   pxText(s).split(/\s+/).filter(Boolean).forEach(function(w){
@@ -1489,28 +1638,29 @@ function contaBody(o){
   var its=o.lines.map(function(l){return '<div class="item"><div><b>'+l.qty+'× '+esc(l.name)+'</b><small>'+(l.obs?esc(l.obs)+' · ':'')+hm(l.ts)+'</small></div><b>'+brl(r2(l.price*l.qty))+'</b></div>'}).join('');
   var pays=o.pays.slice().sort(function(x,y){return x.ts-y.ts}).map(function(p){return '<div class="item"><div><b>'+esc(p.method)+'</b><small>'+hm(p.ts)+'</small></div><b>'+brl(p.value)+'</b></div>'}).join('');
   return '<div class="card" style="margin-top:14px">'+its+'<div class="item"><b>Total da conta</b><b>'+brl(o.tot)+'</b></div></div>'+
-  '<div class="card" style="margin-top:12px"><div class="item" style="padding-top:0"><span>Valor pago</span><b>'+brl(o.pago)+'</b></div><div class="item" style="border:0;padding-bottom:0"><b>Restante</b><b class="gt">'+brl(Math.max(o.rest,0))+'</b></div></div>'+
+  '<div class="card" style="margin-top:12px"><div class="item" style="padding-top:0"><span>Valor pago</span><b>'+brl(o.pago)+'</b></div>'+(o.fiadoL||[]).map(function(f){return '<div class="item"><span>No fiado · '+esc(f.cliente)+'</span><div><b>'+brl(f.value)+'</b>'+(role==='caixa'?' <button class="rm" data-fidesfaz="'+esc(f.id)+'" data-label="Desfazer">Desfazer</button>':'')+'</div></div>'}).join('')+'<div class="item" style="border:0;padding-bottom:0"><b>Restante</b><b class="gt">'+brl(Math.max(o.rest,0))+'</b></div></div>'+
   (pays?'<h2>Pagamentos desta conta</h2><div class="card">'+pays+'</div>':'');
 }
 function contaForm(o){
   if(o.rest<=0)return '<div class="note"><b>Conta quitada.</b></div>';
   return '<form id="cf" class="card" novalidate><label for="cvalor">Valor a receber (R$)</label><input id="cvalor" type="text" inputmode="decimal" autocomplete="off" value="'+fmtIn(o.rest)+'" style="margin-bottom:14px"><label id="lm">Forma de pagamento</label><div class="chips" role="group" aria-labelledby="lm">'+
-  METHODS.map(function(m){return '<button type="button" class="chip" aria-pressed="false" data-m="'+m+'">'+m+'</button>'}).join('')+'</div><button class="submit" type="submit">Registrar pagamento</button><div class="msg" id="cmsg" role="status"></div></form>';
+  METHODS.map(function(m){return '<button type="button" class="chip" aria-pressed="false" data-m="'+m+'">'+m+'</button>'}).join('')+'</div><button class="submit" type="submit">Registrar pagamento</button><div class="msg" id="cmsg" role="status"></div></form>'+fiadoCard(o);
 }
 function contaDetalhe(){
   var o=contasData()[viewArg];
   if(!o){app.innerHTML=backBtn('caixa','Voltar')+'<div class="note">'+(loaded?'Conta não encontrada.':'Carregando…')+'</div>';return}
   chosen=null;
-  app.innerHTML=backBtn('caixa','Voltar')+'<div class="center"><p class="muted">'+(o.viagem?'Pedido para viagem':'Conta fechada da mesa')+'</p><div class="bigmesa'+(String(o.table).length>3?' long':'')+'">'+esc(o.table)+'</div>'+(o.cliente?'<p class="muted"><b>Cliente: '+esc(o.cliente)+'</b></p>':'')+'<p class="muted">'+(o.viagem?'Pedido às ':(o.by==='Salão'?'Enviada pelo salão às ':'Fechada às '))+hm(o.closedAt)+'</p></div><div id="cinfo">'+contaBody(o)+'</div><div id="cform" style="margin-top:14px">'+contaForm(o)+'</div>'+(o.viagem&&o.pago<=0?'<button class="danger" data-vcancel="'+esc(o.id)+'" data-label="Cancelar pedido de viagem">Cancelar pedido de viagem</button><div class="msg" id="vmsg" role="alert"></div>':'');
+  app.innerHTML=backBtn('caixa','Voltar')+'<div class="center"><p class="muted">'+(o.viagem?'Pedido para viagem':'Conta fechada da mesa')+'</p><div class="bigmesa'+(String(o.table).length>3?' long':'')+'">'+esc(o.table)+'</div>'+(o.cliente?'<p class="muted"><b>Cliente: '+esc(o.cliente)+'</b></p>':'')+'<p class="muted">'+(o.viagem?'Pedido às ':(o.by==='Salão'?'Enviada pelo salão às ':'Fechada às '))+hm(o.closedAt)+'</p></div><div id="cinfo">'+contaBody(o)+'</div><div id="cform" style="margin-top:14px">'+contaForm(o)+'</div><div id="cacoes" data-sig="'+o.pago+'|'+(o.fiadoVal||0)+'">'+contaAcoes(o)+'</div>'+(o.viagem&&o.pago<=0?'<button class="danger" data-vcancel="'+esc(o.id)+'" data-label="Cancelar pedido de viagem">Cancelar pedido de viagem</button><div class="msg" id="vmsg" role="alert"></div>':'');
 }
 function updConta(){
   var o=contasData()[viewArg],i=document.getElementById('cinfo');if(!o||!i)return;
   i.innerHTML=contaBody(o);
   var f=document.getElementById('cform'),has=!!document.getElementById('cf');
   if(f&&((o.rest<=0&&has)||(o.rest>0&&!has)))f.innerHTML=contaForm(o);
+  var ac=document.getElementById('cacoes'),sg=o.pago+'|'+(o.fiadoVal||0);if(ac&&ac.getAttribute('data-sig')!==sg){ac.setAttribute('data-sig',sg);ac.innerHTML=contaAcoes(o)}
 }
 function refreshContas(){
-  if(view==='caixa'){var bg=document.getElementById('cbadge');if(bg){var n=pendCount();bg.textContent=n;bg.className='cnt'+(n?'':' zero')}var hb=document.getElementById('hbadge');if(hb){var hn=histCount();hb.textContent=hn;hb.className='cnt'+(hn?'':' zero')}var fb=document.getElementById('fbadge');if(fb){var m=mesasCount();fb.textContent=m;fb.className='cnt'+(m?'':' zero')}if(cOpen)modalBody()}
+  if(view==='caixa'){var bg=document.getElementById('cbadge');if(bg){var n=pendCount();bg.textContent=n;bg.className='cnt'+(n?'':' zero')}var hb=document.getElementById('hbadge');if(hb){var hn=histCount();hb.textContent=hn;hb.className='cnt'+(hn?'':' zero')}var fib=document.getElementById('fibadge');if(fib){var fn=fiCount();fib.textContent=fn;fib.className='cnt'+(fn?'':' zero')}var fb=document.getElementById('fbadge');if(fb){var m=mesasCount();fb.textContent=m;fb.className='cnt'+(m?'':' zero')}if(cOpen)modalBody()}
   else if(view==='conta'){if(!document.getElementById('cinfo'))contaDetalhe();else updConta()}
 }
 async function payConta(ev){
@@ -1529,7 +1679,7 @@ async function payConta(ev){
     if(o.viagem){try{await Promise.all(o.lines.map(function(l){return db.doc('itens/'+l.id).update({recebido:true})}))}catch(e){}}
     if(left<=0&&o.viagem){try{await Promise.all(o.lines.map(function(l){return db.doc('itens/'+l.id).update({quitada:true,quitadaAt:Date.now()})}))}catch(e){}}
     if(left<=0){toast(mesaLabel(o.label||o.table)+' quitada · '+m+' '+brl(v));location.hash='#/caixa'}
-    else{toast('Pagamento registrado · restante '+brl(left));chosen=null;document.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed','false')});var cv=document.getElementById('cvalor');if(cv)cv.value=fmtIn(left);msg.textContent=''}
+    else{toast('Pagamento registrado · restante '+brl(left));chosen=null;document.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed','false')});var cv=document.getElementById('cvalor');if(cv)cv.value=fmtIn(left);var fv2=document.getElementById('fval');if(fv2)fv2.value=fmtIn(left);msg.textContent=''}
   }catch(e){fail('Não foi possível registrar. Tente de novo.')}
   b.disabled=false;
 }
@@ -1553,7 +1703,7 @@ function subscribePayments(id){
   if(unsubPay)unsubPay();
   nightId=id;loaded=false;payments=[];
   unsubPay=db.collection('pagamentos').where('night','==',id).onSnapshot(function(snap){
-    payments=snap.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,method:x.method,value:Number(x.value)||0,conta:x.conta||'',ts:x.ts||0}})
+    payments=snap.docs.map(function(d){var x=d.data();return {id:d.id,table:x.table,method:x.method,value:Number(x.value)||0,conta:x.conta||'',fid:x.fid||'',ts:x.ts||0}})
       .sort(function(a,b){return b.ts-a.ts});
     loaded=true;if(view==='pagamentos')pagamentos();else if(view==='historico'||view==='analise')render();else refreshContas();
   },function(){dbState='off';loaded=true;route()});
@@ -1586,6 +1736,7 @@ function startApp(){
   if(c){
     db.collection('estoque').onSnapshot(function(sn){stock={};sn.docs.forEach(function(d){stock[d.id]=Number(d.data().qty)||0});if(view==='estoque'&&stTab==='estoque')estoque()},function(){});
     db.doc('config/estoque').onSnapshot(function(s){if(s.exists){var x=s.data();if(x&&x.json&&x.json!==JSON.stringify(items)){try{items=JSON.parse(x.json)}catch(e){return}if(view==='estoque'&&stTab!=='itens')estoque()}}},function(){});
+    db.collection('fiado').onSnapshot(function(sn){fiados=sn.docs.map(function(d){var x=d.data();return {id:d.id,tipo:x.tipo==='c'?'c':'d',cliente:String(x.cliente||''),ckey:x.ckey||fiKey(x.cliente||''),value:Number(x.value)||0,conta:x.conta||'',table:x.table||'',itens:x.itens||'',method:x.method||'',night:x.night||'',ts:x.ts||0,by:x.by||''}}).sort(function(a,b){return a.ts-b.ts});refreshContas()},function(){});
     db.collection('noites').onSnapshot(function(sn){noites=sn.docs.map(function(d){var x=d.data();x.id=d.id;return x}).sort(function(a,b){return b.since-a.since});loadedN=true;if(view==='historico'||view==='analise'||view==='noite')render()},function(){loadedN=true});
   }
   if(role==='caixa')db.doc('config/gastosCats').onSnapshot(function(s){if(s.exists){try{var a=JSON.parse(s.data().json);if(Array.isArray(a)&&a.length){if(a.indexOf('Outros')<0)a.push('Outros');gCats=a}}catch(e){}}if(view==='gastos'&&gTab==='cats')gastosView()},function(){});
@@ -1648,6 +1799,7 @@ document.addEventListener('click',async function(ev){
       else{
         var pid=b.getAttribute('data-rm'),pp=payments.filter(function(e){return e.id===pid})[0];
         await db.doc('pagamentos/'+pid).delete();
+        if(pp&&pp.fid){try{await db.doc('fiado/'+pp.fid).delete()}catch(e){}}
         if(pp&&pp.conta){var oc=contasData()[pp.conta];if(oc&&oc.viagem){var sobra=payments.filter(function(e){return e.conta===pp.conta&&e.id!==pid}).length;oc.lines.forEach(function(l){db.doc('itens/'+l.id).update(sobra?{quitada:false}:{quitada:false,recebido:false}).catch(function(){})})}}
       }
     }catch(e){b.disabled=false;b.removeAttribute('data-armed');b.textContent='Não foi possível. Tentar de novo';if(e&&(e.code==='invalid_argument'||e.code==='permission-denied')){canWrite=false}}
