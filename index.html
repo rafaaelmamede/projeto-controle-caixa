@@ -170,6 +170,73 @@ input[type=file]{width:100%;font:inherit;color:inherit}
 select{width:100%;padding:13px 12px;border:1.5px solid rgba(0,48,112,.4);border-radius:10px;background:var(--field);color:var(--ink);font:inherit;font-size:1.05rem}
 .dup{color:var(--danger);font-weight:700}.ddn{color:var(--ok);font-weight:700}
 .chk{display:flex;align-items:center;gap:10px;font-weight:600;margin:4px 0}.chk input{width:22px;height:22px;accent-color:var(--accent)}
+
+/* ===== Responsivo: celular, tablet e notebook ===== */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{overflow-x:hidden}
+main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.sheet{max-height:86vh;max-height:86dvh}
+.sec h2{break-after:avoid}
+@media (pointer:coarse){.qty button{width:44px;height:44px}.rm{padding:12px 0 12px 10px}.adc{padding:10px 12px}}
+button:active:not(:disabled){transform:translateY(1px)}
+@media (hover:hover){
+ .big:hover,.act:hover,.submit:hover,.tile:hover,.fab:hover{filter:brightness(1.18)}
+ .chip:hover:not([aria-pressed=true]){border-color:var(--accent);background:rgba(0,48,112,.07)}
+ .rb:hover{background:rgba(0,48,112,.05)}
+ .link:hover{text-decoration:underline}
+}
+@media (max-height:520px) and (orientation:landscape){main{padding-top:60px}.sheet{max-height:94dvh}.big{margin-top:18px;padding:16px 18px}}
+/* celulares pequenos */
+@media (max-width:380px){
+ main{padding-top:62px;padding-bottom:40px}
+ h1{font-size:1.8rem}
+ .big{font-size:1.3rem;padding:22px 16px}
+ .total{font-size:2.4rem}
+ .tile .tn{font-size:2.1rem}.tile .tn.long{font-size:1.2rem}
+ .mgrid{gap:8px}
+ .chips.c3 .chip{padding:11px 4px;font-size:.85rem}
+ .seg.s4 button{font-size:.78rem;padding:10px 2px}.seg.s3 button{font-size:.85rem}
+ .irow .sub{grid-template-columns:1fr 1fr}.irow .sub .rm{grid-column:1/-1;text-align:right}
+ .frow{grid-template-columns:1fr 64px auto auto}
+ .mrow{grid-template-columns:1fr 84px auto}
+ .acts .chip{font-size:.85rem}
+ .bigmesa{font-size:3.8rem}
+ .brand .logo{flex-basis:72px;width:72px}
+ .sheet{padding-left:12px;padding-right:12px}
+ .act{font-size:.95rem;padding:14px 6px}
+}
+@media (max-width:340px){
+ .fabs{right:8px;gap:6px}.fab{width:42px;height:42px}
+ .row{grid-template-columns:1fr}
+ body{font-size:16px}
+}
+/* tablet */
+@media (min-width:700px){
+ main{max-width:760px;padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
+ .mgrid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+ .hgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+ .hgrid .big{margin-top:0!important;min-height:132px;display:flex;align-items:center;justify-content:center}
+ body[data-view="home"] main{max-width:900px}
+}
+/* notebook */
+@media (min-width:1024px){
+ main{padding-left:max(32px,env(safe-area-inset-left,0px));padding-right:max(32px,env(safe-area-inset-right,0px))}
+ body[data-view="caixa"] main{max-width:1080px}
+ .cx2{display:grid;grid-template-columns:1fr 1fr;gap:0 32px;align-items:start}
+ .cxl .topact{margin-top:18px}
+ body[data-view="pedidos"] main,body[data-view="mesas"] main,body[data-view="cardapio"] main,body[data-view="estoque"] main{max-width:1180px}
+ body[data-view="mesas"][data-sub="detail"] main{max-width:760px}
+ .ped2{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(340px,1fr);gap:28px;align-items:start}
+ .pr{position:sticky;top:72px;max-height:calc(100vh - 92px);overflow:auto}
+ .pr h2{margin-top:14px}
+ .secs{columns:2;column-gap:28px}
+ .sec{break-inside:avoid;margin-bottom:6px}
+ .secs>.note{column-span:all}
+ .secs .sec{padding-top:22px}.secs .sec h2{margin-top:0}
+ .cxr h2:first-child{margin-top:18px}
+ .sheet{max-width:780px}
+}
+@media (min-width:1500px){body.kview main{max-width:1500px}}
 </style>
 </head>
 <body>
@@ -292,9 +359,9 @@ function offlineNote(){
 
 function home(){
   var g=role==='garcom';
-  app.innerHTML='<div class="center"><div class="logo"><img src="'+LOGO+'" alt="Tri Lanches, comida brasileira"></div><h1>Painel do restaurante</h1><p class="muted">Escolha uma área para começar.</p></div>'+
+  app.innerHTML='<div class="center"><div class="logo"><img src="'+LOGO+'" alt="Tri Lanches, comida brasileira"></div><h1>Painel do restaurante</h1><p class="muted">Escolha uma área para começar.</p></div><div class="hgrid">'+
   (g?'':'<button class="big" data-go="caixa">Controle de caixa</button>')+'<button class="big" data-go="pedidos"'+(g?'':' style="margin-top:24px"')+'>Lançamento de pedidos</button>'+
-  (g?'':'<button class="big" data-go="estoque" style="margin-top:24px">Controle de estoque</button>')+(g?'':'<button class="big" data-go="cozinha" style="margin-top:24px">Cozinha</button>')+sndRow()+offlineNote();
+  (g?'':'<button class="big" data-go="estoque" style="margin-top:24px">Controle de estoque</button>')+(g?'':'<button class="big" data-go="cozinha" style="margin-top:24px">Cozinha</button>')+'</div>'+sndRow()+offlineNote();
 }
 function caixa(){
   chosen=null;
@@ -309,7 +376,7 @@ function caixa(){
   : dbState==='off'?offlineNote()
   : '<div class="note">Você tem acesso somente para consulta. Peça permissão de colaborador para registrar pagamentos.</div>';
   app.innerHTML='<div class="top"><button class="link" data-go="">Voltar</button></div>'+
-  '<div class="brand"><div class="logo"><img src="'+LOGO+'" alt="Tri Lanches"></div><div><h1>Controle de caixa</h1><p class="muted">Registre o que o garçom informar.</p></div></div>'+'<div class="topact"><button class="act" data-contas="fechar">Fechar conta<span class="cnt'+(mesasCount()?'':' zero')+'" id="fbadge">'+mesasCount()+'</span></button><button class="act" id="cbtn" data-contas="open">Contas a receber<span class="cnt'+(pendCount()?'':' zero')+'" id="cbadge">'+pendCount()+'</span></button><button class="act" data-contas="hist" style="grid-column:1/-1">Histórico de mesas e viagens<span class="cnt'+(histCount()?'':' zero')+'" id="hbadge">'+histCount()+'</span></button><button class="act" data-contas="fiado" style="grid-column:1/-1">Fiado de clientes<span class="cnt'+(fiCount()?'':' zero')+'" id="fibadge">'+fiCount()+'</span></button></div><h2 style="margin-top:24px">Pagamento avulso</h2>'+form+
+  '<div class="brand"><div class="logo"><img src="'+LOGO+'" alt="Tri Lanches"></div><div><h1>Controle de caixa</h1><p class="muted">Registre o que o garçom informar.</p></div></div>'+'<div class="cx2"><div class="cxl"><div class="topact"><button class="act" data-contas="fechar">Fechar conta<span class="cnt'+(mesasCount()?'':' zero')+'" id="fbadge">'+mesasCount()+'</span></button><button class="act" id="cbtn" data-contas="open">Contas a receber<span class="cnt'+(pendCount()?'':' zero')+'" id="cbadge">'+pendCount()+'</span></button><button class="act" data-contas="hist" style="grid-column:1/-1">Histórico de mesas e viagens<span class="cnt'+(histCount()?'':' zero')+'" id="hbadge">'+histCount()+'</span></button><button class="act" data-contas="fiado" style="grid-column:1/-1">Fiado de clientes<span class="cnt'+(fiCount()?'':' zero')+'" id="fibadge">'+fiCount()+'</span></button></div></div><div class="cxr"><h2 style="margin-top:24px">Pagamento avulso</h2>'+form+'</div></div>'+
   '<button class="big alt" data-go="pagamentos">Pagamentos da noite</button>';
   var m=document.getElementById('mesa');if(m)m.focus();
 }
@@ -504,7 +571,7 @@ function pedidos(){
     return;
   }
   app.innerHTML=backBtn('','Voltar')+offlineNote()+seg('pedidos')+'<div id="phead" style="margin-top:12px">'+pedHead()+'</div>'+
-  '<input id="pbusca" type="search" inputmode="search" placeholder="Pesquisar item (ex.: burguer, coca, 05)" autocomplete="off" aria-label="Pesquisar item" value="'+esc(pedBusca)+'" style="margin-top:14px"><div class="chips c3" id="pcats" style="margin:12px 0 0"></div><div class="card" id="pitems"></div><h2>Pedido</h2><div class="card" id="pcart"></div><div class="msg" id="pmsg" role="status"></div>';
+  '<div class="ped2"><div class="pl"><input id="pbusca" type="search" inputmode="search" placeholder="Pesquisar item (ex.: burguer, coca, 05)" autocomplete="off" aria-label="Pesquisar item" value="'+esc(pedBusca)+'" style="margin-top:14px"><div class="chips c3" id="pcats" style="margin:12px 0 0"></div><div class="card" id="pitems"></div></div><div class="pr"><h2>Pedido</h2><div class="card" id="pcart"></div><div class="msg" id="pmsg" role="status"></div></div></div>';
   updItems();updCart();
 }
 function updPedLive(){
@@ -704,9 +771,9 @@ function mesaDetalhe(){
 function mrow(m){return '<div class="mrow"><input type="text" value="'+esc(m.name)+'" data-mid="'+esc(m.id)+'" data-mf="name" aria-label="Nome"><input type="text" inputmode="decimal" value="'+(m.price==null?'':fmtIn(m.price))+'" placeholder="sem preço" data-mid="'+esc(m.id)+'" data-mf="price" aria-label="Preço"><button class="rm" data-mdel="'+esc(m.id)+'" data-label="Excluir">Excluir</button></div>'}
 function cardapio(){
   app.innerHTML=backBtn('','Voltar')+'<h1>Cardápio</h1><p class="muted">Altere nomes e preços. Itens sem preço não aparecem para os garçons.</p>'+offlineNote()+
-  '<h2>Adicionais (lanches)</h2><p class="muted">Valor somado ao lanche quando o garçom marca o adicional no pedido. Sem valor, o adicional não aparece no pedido. Vale para os itens de Fast food.</p><div class="card">'+addons.map(arow).join('')+'<div class="mrow" style="border:0"><input type="text" id="anname" placeholder="Novo adicional" aria-label="Nome do novo adicional"><input type="text" id="anprice" inputmode="decimal" placeholder="Valor" aria-label="Valor do novo adicional"><span></span></div><button class="submit" id="aadd" style="margin-top:10px">Adicionar adicional</button></div>'+
-  '<h2>Novo item</h2><div class="card"><div class="mrow" style="border:0"><input type="text" id="nname" placeholder="Nome" aria-label="Nome do novo item"><input type="text" id="nprice" inputmode="decimal" placeholder="Preço" aria-label="Preço do novo item"><span></span></div><select id="ncat" aria-label="Categoria">'+CATL.map(function(c){return '<option>'+c+'</option>'}).join('')+'</select><button class="submit" id="nadd" style="margin-top:10px">Adicionar ao cardápio</button></div>'+
-  CATL.map(function(c){var it=menu.filter(function(m){return m.cat===c});return '<h2>'+c+'</h2><div class="card">'+(it.length?it.map(mrow).join(''):'<p class="muted">Sem itens.</p>')+'</div>'}).join('');
+  '<div class="secs"><section class="sec"><h2>Adicionais (lanches)</h2><p class="muted">Valor somado ao lanche quando o garçom marca o adicional no pedido. Sem valor, o adicional não aparece no pedido. Vale para os itens de Fast food.</p><div class="card">'+addons.map(arow).join('')+'<div class="mrow" style="border:0"><input type="text" id="anname" placeholder="Novo adicional" aria-label="Nome do novo adicional"><input type="text" id="anprice" inputmode="decimal" placeholder="Valor" aria-label="Valor do novo adicional"><span></span></div><button class="submit" id="aadd" style="margin-top:10px">Adicionar adicional</button></div></section>'+
+  '<section class="sec"><h2>Novo item</h2><div class="card"><div class="mrow" style="border:0"><input type="text" id="nname" placeholder="Nome" aria-label="Nome do novo item"><input type="text" id="nprice" inputmode="decimal" placeholder="Preço" aria-label="Preço do novo item"><span></span></div><select id="ncat" aria-label="Categoria">'+CATL.map(function(c){return '<option>'+c+'</option>'}).join('')+'</select><button class="submit" id="nadd" style="margin-top:10px">Adicionar ao cardápio</button></div></section>'+
+  CATL.map(function(c){var it=menu.filter(function(m){return m.cat===c});return '<section class="sec"><h2>'+c+'</h2><div class="card">'+(it.length?it.map(mrow).join(''):'<p class="muted">Sem itens.</p>')+'</div></section>'}).join('')+'</div>';
 }
 async function saveMenu(){if(!db)return;try{await db.doc('config/cardapio').set({json:JSON.stringify(menu)})}catch(e){}}
 function addMenuItem(){
@@ -825,14 +892,14 @@ function fRow(k,name,price){
 function fichasList(){
   var terms=norm(fchSearch).split(/\s+/).filter(Boolean),h='',any=false;
   function hit(n){var x=norm(n);return terms.every(function(t){return x.indexOf(t)>-1})}
-  CATL.forEach(function(cat){var l=menu.filter(function(m){return m.cat===cat&&hit(m.name)});if(!l.length)return;any=true;h+='<h2>'+cat+'</h2>'+l.map(function(m){return fRow(fKey('m',m.id),m.name,m.price)}).join('')});
-  var ad=addons.filter(function(a){return hit(a.name)});if(ad.length){any=true;h+='<h2>Adicionais</h2>'+ad.map(function(a){return fRow(fKey('a',a.id),a.name,a.price)}).join('')}
+  CATL.forEach(function(cat){var l=menu.filter(function(m){return m.cat===cat&&hit(m.name)});if(!l.length)return;any=true;h+='<section class="sec"><h2>'+cat+'</h2>'+l.map(function(m){return fRow(fKey('m',m.id),m.name,m.price)}).join('')+'</section>'});
+  var ad=addons.filter(function(a){return hit(a.name)});if(ad.length){any=true;h+='<section class="sec"><h2>Adicionais</h2>'+ad.map(function(a){return fRow(fKey('a',a.id),a.name,a.price)}).join('')+'</section>'}
   if(!any)h+='<div class="note">Nada encontrado.</div>';
   return h;
 }
 function fichasHtml(){
   var done=menu.filter(function(m){return fCost(fKey('m',m.id)).n>0}).length;
-  return '<p class="muted">Informe os insumos de cada prato. Ao enviar o pedido, o estoque é baixado sozinho; se o pedido for cancelado, ele volta. O custo usa o valor de cada insumo na aba Itens. '+done+' de '+menu.length+' itens do cardápio com ficha.</p><input id="fchq" type="search" placeholder="Pesquisar prato ou adicional" autocomplete="off" value="'+esc(fchSearch)+'" aria-label="Pesquisar" style="margin-top:10px"><div id="fchlist" style="margin-top:10px">'+fichasList()+'</div>';
+  return '<p class="muted">Informe os insumos de cada prato. Ao enviar o pedido, o estoque é baixado sozinho; se o pedido for cancelado, ele volta. O custo usa o valor de cada insumo na aba Itens. '+done+' de '+menu.length+' itens do cardápio com ficha.</p><input id="fchq" type="search" placeholder="Pesquisar prato ou adicional" autocomplete="off" value="'+esc(fchSearch)+'" aria-label="Pesquisar" style="margin-top:10px"><div id="fchlist" class="secs" style="margin-top:10px">'+fichasList()+'</div>';
 }
 function isLow(it){return it.min>0&&(stock[it.id]||0)<=it.min}
 function saveItems(){if(!db)return;try{db.doc('config/estoque').set({json:JSON.stringify(items)})}catch(e){}}
@@ -851,13 +918,13 @@ function stockList(){
   if(low&&!terms.length)h+='<div class="note" role="alert" style="margin-bottom:12px"><b>'+plural(low,'item abaixo','itens abaixo')+' do mínimo.</b></div>';
   ST_CATS.forEach(function(c){
     var l=items.filter(function(i){return i.cat===c&&hit(i)});if(!l.length)return;
-    any=true;h+='<h2>'+c+'</h2>'+l.map(stCard).join('');
+    any=true;h+='<section class="sec"><h2>'+c+'</h2>'+l.map(stCard).join('')+'</section>';
   });
   if(!any)h+='<div class="note">Nenhum item encontrado'+(terms.length?' para “'+esc(stSearch.trim())+'”':'')+'.</div>';
   return h;
 }
 function stockHtml(){
-  return '<input id="stq" type="search" placeholder="Pesquisar item (ex.: coca, bacon)" autocomplete="off" value="'+esc(stSearch)+'" aria-label="Pesquisar item"><div class="msg ok" id="stmsg" role="status">'+esc(stMsg)+'</div><div id="stlist">'+stockList()+'</div>';
+  return '<input id="stq" type="search" placeholder="Pesquisar item (ex.: coca, bacon)" autocomplete="off" value="'+esc(stSearch)+'" aria-label="Pesquisar item"><div class="msg ok" id="stmsg" role="status">'+esc(stMsg)+'</div><div id="stlist" class="secs">'+stockList()+'</div>';
 }
 function histHtml(){
   if(!movsOk)return '<div class="card"><p class="muted">Carregando…</p></div>';
@@ -869,10 +936,12 @@ function histHtml(){
 }
 function itensHtml(){
   var h='<div class="card" style="margin-bottom:12px"><label for="xn">Novo item</label><input id="xn" type="text" placeholder="Nome" autocomplete="off"><div class="sub2"><select id="xu" aria-label="Unidade"><option>un</option><option>kg</option><option>L</option><option>cx</option></select><select id="xc" aria-label="Categoria">'+ST_CATS.map(function(c){return '<option>'+c+'</option>'}).join('')+'</select></div><button class="submit" id="xadd">Adicionar item</button></div><p class="muted">Defina o mínimo para receber o aviso "baixo". Deixe vazio para não avisar. O custo (R$ por unidade, ex.: por kg) é usado na ficha técnica.</p>';
+  h+='<div class="secs">';
   ST_CATS.forEach(function(c){
     var l=items.filter(function(i){return i.cat===c});
-    h+='<h2>'+c+'</h2><div class="card">'+(l.length?l.map(function(it){return '<div class="irow"><input type="text" value="'+esc(it.name)+'" data-xid="'+esc(it.id)+'" data-xf="name" aria-label="Nome"><div class="sub"><input type="text" value="'+esc(it.unit)+'" data-xid="'+esc(it.id)+'" data-xf="unit" aria-label="Unidade"><input type="text" inputmode="decimal" value="'+(it.min>0?fmtQ(it.min):'')+'" placeholder="Mínimo" data-xid="'+esc(it.id)+'" data-xf="min" aria-label="Estoque mínimo"><input type="text" inputmode="decimal" value="'+(it.cost>0?fmtIn(it.cost):'')+'" placeholder="Custo R$" data-xid="'+esc(it.id)+'" data-xf="cost" aria-label="Custo por unidade em reais"><button class="rm" data-xdel="'+esc(it.id)+'" data-label="Excluir">Excluir</button></div></div>'}).join(''):'<p class="muted">Sem itens.</p>')+'</div>';
+    h+='<section class="sec"><h2>'+c+'</h2><div class="card">'+(l.length?l.map(function(it){return '<div class="irow"><input type="text" value="'+esc(it.name)+'" data-xid="'+esc(it.id)+'" data-xf="name" aria-label="Nome"><div class="sub"><input type="text" value="'+esc(it.unit)+'" data-xid="'+esc(it.id)+'" data-xf="unit" aria-label="Unidade"><input type="text" inputmode="decimal" value="'+(it.min>0?fmtQ(it.min):'')+'" placeholder="Mínimo" data-xid="'+esc(it.id)+'" data-xf="min" aria-label="Estoque mínimo"><input type="text" inputmode="decimal" value="'+(it.cost>0?fmtIn(it.cost):'')+'" placeholder="Custo R$" data-xid="'+esc(it.id)+'" data-xf="cost" aria-label="Custo por unidade em reais"><button class="rm" data-xdel="'+esc(it.id)+'" data-label="Excluir">Excluir</button></div></div>'}).join(''):'<p class="muted">Sem itens.</p>')+'</div></section>';
   });
+  h+='</div>';
   return h;
 }
 function ensureMovs(){if(movsUnsub||!db)return;movsUnsub=db.collection('movs').orderBy('ts','desc').limit(100).onSnapshot(function(sn){movs=sn.docs.map(function(d){var x=d.data();x.id=d.id;return x});movsOk=true;if(view==='estoque'&&stTab==='hist')estoque()},function(){movsOk=true})}
@@ -1690,7 +1759,7 @@ function render(){
   if(authState!=='ok'){authView();return}
   if(role==='garcom'&&view!==''&&view!=='pedidos'&&view!=='mesas'){view='';history.replaceState(null,'','#/')}
   if(role==='cozinha'&&view!=='cozinha'){view='cozinha';history.replaceState(null,'','#/cozinha')}
-  document.body.classList.toggle('kview',view==='cozinha');
+  document.body.classList.toggle('kview',view==='cozinha');document.body.dataset.view=view||'home';document.body.dataset.sub=viewArg?'detail':'list';
   if(view!=='noite'&&unsubDet){unsubDet();unsubDet=null;detId=''}
   if(view==='caixa')caixa();else if(view==='pagamentos')pagamentos();else if(view==='historico')historico();else if(view==='analise')analise();else if(view==='noite')noiteView();else if(view==='pedidos')pedidos();else if(view==='mesas')mesas();else if(view==='cardapio')cardapio();else if(view==='estoque')estoque();else if(view==='conta')contaDetalhe();else if(view==='cozinha')cozinha();else if(view==='gastos')gastosView();else home();
   document.querySelectorAll('.fab').forEach(function(f){f.setAttribute('aria-current',(view===f.getAttribute('data-go')||(view==='noite'&&f.getAttribute('data-go')==='historico'))?'page':'false')});
