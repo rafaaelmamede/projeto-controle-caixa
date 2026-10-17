@@ -237,6 +237,16 @@ button:active:not(:disabled){transform:translateY(1px)}
  .sheet{max-width:780px}
 }
 @media (min-width:1500px){body.kview main{max-width:1500px}}
+
+/* atalhos de baixa automática (Fichas) */
+.lhead{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;background:none;border:0;padding:6px 0;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.lhead small{display:block;color:var(--muted);font-weight:400}
+.lrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:8px 12px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.lrow .lsel{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.lrow select{flex:1 1 160px;width:auto;min-width:0;margin:0}
+.lrow.chk{display:flex;align-items:center;gap:12px;margin:0;font-weight:400;cursor:pointer}
+.lrow.chk input[type=checkbox]{width:24px;height:24px;margin:0;padding:0;flex:none;accent-color:var(--accent)}
+@media (max-width:520px){.lrow{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -848,7 +858,10 @@ document.addEventListener('input',function(ev){
   else if(d.obs){var c=cart.filter(function(x){return x.u===d.obs})[0];if(c)c.obs=t.value}
 });
 document.addEventListener('change',function(ev){
-  var t=ev.target,d=t.dataset||{};if(t.id==='pmode'||t.id==='pcols'||t.id==='pauto'){var pc=printCfg();if(t.id==='pmode'){pc.mode=t.value;if(pc.mode!=='off')pc.since=Date.now()}else if(t.id==='pcols')pc.cols=Number(t.value);else{pc.auto=t.checked;if(pc.auto)pc.since=Date.now()}savePrintCfg(pc);cozinha();return}if(t.id==='gfil'){gFilter=t.value;gastosView();return}if(t.id==='gfoto'){gPickFoto(t);return}if(d.fk){var frs=fichas[d.fk],frw=frs&&frs[+d.fx];if(!frw)return;if(d.ff==='i'){var fit=itemOf(t.value);frw.i=t.value;frw.n=fit?fit.name:'';frw.u=fit?fit.unit:''}else{var fq=parseQty(t.value);if(fq===null){t.value=fmtQ(frw.q);return}frw.q=fq}saveFichas();estoque();return}
+  var t=ev.target,d=t.dataset||{};if(t.id==='pmode'||t.id==='pcols'||t.id==='pauto'){var pc=printCfg();if(t.id==='pmode'){pc.mode=t.value;if(pc.mode!=='off')pc.since=Date.now()}else if(t.id==='pcols')pc.cols=Number(t.value);else{pc.auto=t.checked;if(pc.auto)pc.since=Date.now()}savePrintCfg(pc);cozinha();return}if(t.id==='gfil'){gFilter=t.value;gastosView();return}if(t.id==='gfoto'){gPickFoto(t);return}if(d.bv!==undefined){setLink(d.bv,t.value);return}
+  if(d.paosel){paoSel=t.value;estoque();return}
+  if(d.pao!==undefined){togglePao(d.pao,t.checked);return}
+  if(d.fk){var frs=fichas[d.fk],frw=frs&&frs[+d.fx];if(!frw)return;if(d.ff==='i'){var fit=itemOf(t.value);frw.i=t.value;frw.n=fit?fit.name:'';frw.u=fit?fit.unit:''}else{var fq=parseQty(t.value);if(fq===null){t.value=fmtQ(frw.q);return}frw.q=fq}saveFichas();estoque();return}
   if(d.xid){editItem(t,d);return}
   if(d.aid){var ad=addons.filter(function(x){return x.id===d.aid})[0];if(!ad)return;if(d.af==='name'){var nv=t.value.trim();if(nv)ad.name=nv;else t.value=ad.name}else{var rw=t.value.trim(),pv=rw===''?null:parseValue(rw);if(rw!==''&&pv===null){t.value=ad.price==null?'':fmtIn(ad.price);return}ad.price=pv;t.value=pv==null?'':fmtIn(pv)}saveAddons();return}
   if(!d.mid)return;
@@ -897,9 +910,46 @@ function fichasList(){
   if(!any)h+='<div class="note">Nada encontrado.</div>';
   return h;
 }
+/* ===== Atalhos de baixa automática: bebidas e pão de hambúrguer ===== */
+var fcard='',paoSel='';
+function toks(s){return norm(s).replace(/[^a-z0-9]+/g,' ').trim().split(' ').filter(Boolean)}
+function bestStock(name){var mt=toks(name),best=null,bn=0,tie=false;items.forEach(function(it){var st=toks(it.name);if(!st.length)return;if(!st.every(function(t){return mt.indexOf(t)>-1}))return;if(st.length>bn){best=it;bn=st.length;tie=false}else if(st.length===bn)tie=true});return tie?null:best}
+function linkOf(mid){var r=fRows(fKey('m',mid));if(!r.length)return '';return(r.length===1&&r[0].q===1&&r[0].i)?r[0].i:'*'}
+function setLink(mid,sid){var k=fKey('m',mid);if(!sid)delete fichas[k];else{var it=itemOf(sid);fichas[k]=[{i:sid,q:1,n:it?it.name:'',u:it?it.unit:''}]}saveFichas();estoque()}
+function newStockItem(name,cat,unit){var it={id:'e'+Date.now()+Math.floor(Math.random()*1000),cat:cat,name:name,unit:unit,min:0};items.push(it);saveItems();return it}
+function linkOpts(sel,ph){return '<option value="">'+ph+'</option>'+ST_CATS.map(function(c){var l=items.filter(function(i){return i.cat===c});return l.length?'<optgroup label="'+esc(c)+'">'+l.map(function(i){return '<option value="'+esc(i.id)+'"'+(i.id===sel?' selected':'')+'>'+esc(i.name)+' ('+esc(i.unit)+')</option>'}).join('')+'</optgroup>':''}).join('')}
+function ligarPeloNome(){var c=0;menu.filter(function(m){return m.cat==='Bebidas'&&!linkOf(m.id)}).forEach(function(m){var it=bestStock(m.name);if(it){fichas[fKey('m',m.id)]=[{i:it.id,q:1,n:it.name,u:it.unit}];c++}});if(c)saveFichas();toast(c?c+' bebida(s) ligada(s) pelo nome.':'Nenhuma ligação segura pelo nome. Escolha na lista.',3200);estoque()}
+function bebidasCard(){
+  var bs=menu.filter(function(m){return m.cat==='Bebidas'}),n=bs.filter(function(m){return linkOf(m.id)}).length,open=fcard==='b';
+  var h='<div class="card" style="margin-top:12px"><button type="button" class="lhead" data-fcard="b" aria-expanded="'+open+'"><span><b>Bebidas · baixa no estoque</b><small>'+n+' de '+bs.length+' ligadas</small></span><span aria-hidden="true">'+(open?'▲':'▼')+'</span></button>';
+  if(open)h+='<p class="muted" style="margin:10px 0">Cada bebida vendida baixa 1 unidade do item escolhido. Antes de começar, informe a quantidade atual de cada item na aba Estoque, com “Contagem”.</p><button type="button" class="chip" data-bauto="1" style="padding:10px 14px;margin:0 8px 6px 0">Ligar pelo nome</button><button type="button" class="chip" data-ball="1" data-label="Criar no estoque as que faltam" style="padding:10px 14px;margin-bottom:6px">Criar no estoque as que faltam</button>'+
+    bs.map(function(m){var l=linkOf(m.id);
+      if(l==='*')return '<div class="lrow"><span><b>'+esc(m.name)+'</b></span><small class="muted">Ficha personalizada · edite na lista abaixo</small></div>';
+      return '<div class="lrow"><span><b>'+esc(m.name)+'</b></span><span class="lsel"><select data-bv="'+esc(m.id)+'" aria-label="Item de estoque de '+esc(m.name)+'">'+linkOpts(l,'Não baixar do estoque')+'</select>'+(l?'':'<button type="button" class="chip" data-bnew="'+esc(m.id)+'" style="padding:10px 12px">Criar no estoque</button>')+'</span></div>'}).join('');
+  return h+'</div>';
+}
+function guessBun(){var l=items.filter(function(i){return toks(i.name).indexOf('pao')>-1});var h=l.filter(function(i){return /hamb|burg/.test(norm(i.name))})[0];return (h||l[0]||{}).id||''}
+function paoSugg(m){var n=norm(m.name);return /burguer|burger|hamburguer/.test(n)||/^x[\s-]/.test(n)}
+function paoBun(){return paoSel&&itemOf(paoSel)?paoSel:guessBun()}
+function paoRows(mid,bun){return fRows(fKey('m',mid)).filter(function(r){return r.i===bun})}
+function togglePao(mid,on){var bun=paoBun();if(!bun)return;var k=fKey('m',mid),it=itemOf(bun),rows=(fichas[k]||[]).filter(function(r){return r.i!==bun});
+  if(on)rows.push({i:bun,q:1,n:it?it.name:'',u:it?it.unit:''});
+  if(rows.length)fichas[k]=rows;else delete fichas[k];
+  saveFichas();estoque()}
+function paoCard(){
+  var bun=paoBun(),open=fcard==='p',fast=menu.filter(function(m){return m.cat==='Fast food'}),n=bun?fast.filter(function(m){return paoRows(m.id,bun).length}).length:0;
+  var h='<div class="card" style="margin-top:12px"><button type="button" class="lhead" data-fcard="p" aria-expanded="'+open+'"><span><b>Pão de hambúrguer · baixa no estoque</b><small>'+(bun?n+' de '+fast.length+' lanches usam o pão':'escolha o item de estoque do pão')+'</small></span><span aria-hidden="true">'+(open?'▲':'▼')+'</span></button>';
+  if(!open)return h+'</div>';
+  if(!bun)return h+'<p class="muted" style="margin:10px 0">Não há nenhum item de pão no estoque.</p><button type="button" class="submit" data-pnew="1" style="margin:0">Criar “Pão de hambúrguer” no estoque</button></div>';
+  h+='<p class="muted" style="margin:10px 0">Marque os lanches que usam o pão de hambúrguer. Cada unidade vendida baixa 1 pão. Informe a quantidade atual do pão na aba Estoque, com “Contagem”.</p>'+
+    '<label for="paosel">Item de estoque do pão</label><select id="paosel" data-paosel="1" style="width:100%;margin:6px 0 12px">'+linkOpts(bun,'Escolha o item')+'</select>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px"><button type="button" class="chip" data-paosug="1" style="padding:10px 14px">Marcar os sugeridos</button><button type="button" class="chip" data-paoclr="1" style="padding:10px 14px">Desmarcar todos</button></div>'+
+    fast.map(function(m){var r=paoRows(m.id,bun);return '<label class="lrow chk"><input type="checkbox" data-pao="'+esc(m.id)+'"'+(r.length?' checked':'')+'><span><b>'+esc(m.name)+'</b>'+(r.length&&r[0].q!==1?' <small class="muted">('+fmtQ(r[0].q)+' pães)</small>':'')+'</span></label>'}).join('');
+  return h+'</div>';
+}
 function fichasHtml(){
   var done=menu.filter(function(m){return fCost(fKey('m',m.id)).n>0}).length;
-  return '<p class="muted">Informe os insumos de cada prato. Ao enviar o pedido, o estoque é baixado sozinho; se o pedido for cancelado, ele volta. O custo usa o valor de cada insumo na aba Itens. '+done+' de '+menu.length+' itens do cardápio com ficha.</p><input id="fchq" type="search" placeholder="Pesquisar prato ou adicional" autocomplete="off" value="'+esc(fchSearch)+'" aria-label="Pesquisar" style="margin-top:10px"><div id="fchlist" class="secs" style="margin-top:10px">'+fichasList()+'</div>';
+  return '<p class="muted">Informe os insumos de cada prato. Ao enviar o pedido, o estoque é baixado sozinho; se o pedido for cancelado, ele volta. O custo usa o valor de cada insumo na aba Itens. '+done+' de '+menu.length+' itens do cardápio com ficha.</p>'+bebidasCard()+paoCard()+'<input id="fchq" type="search" placeholder="Pesquisar prato ou adicional" autocomplete="off" value="'+esc(fchSearch)+'" aria-label="Pesquisar" style="margin-top:10px"><div id="fchlist" class="secs" style="margin-top:10px">'+fichasList()+'</div>';
 }
 function isLow(it){return it.min>0&&(stock[it.id]||0)<=it.min}
 function saveItems(){if(!db)return;try{db.doc('config/estoque').set({json:JSON.stringify(items)})}catch(e){}}
@@ -977,6 +1027,13 @@ function handleStock(b){
   if(d.st){stTab=d.st;openS=null;estoque();return true}
   if(d.sa){openS=openS&&openS.id===d.sa&&openS.type===d.t?null:{id:d.sa,type:d.t};stQty='';stNote='';stPaid='';estoque();var q=document.getElementById('sq');if(q)q.focus();return true}
   if(d.sok){confirmMove(b);return true}
+  if(d.fcard){fcard=fcard===d.fcard?'':d.fcard;estoque();return true}
+  if(d.bauto){ligarPeloNome();return true}
+  if(d.ball){if(arm(b))return true;var bc2=0;menu.filter(function(m){return m.cat==='Bebidas'&&!linkOf(m.id)}).forEach(function(m){var cat2=/cerveja|brahma|skol|stella|antarctica|bohemia|heineken|budweiser/.test(norm(m.name))?'Cervejas':'Refrigerantes',n2=newStockItem(m.name,cat2,'un');fichas[fKey('m',m.id)]=[{i:n2.id,q:1,n:n2.name,u:n2.unit}];bc2++});if(bc2){saveFichas();toast(bc2+' item(ns) criado(s) no estoque e ligado(s).',3200)}estoque();return true}
+  if(d.bnew){var bm=menu.filter(function(m){return m.id===d.bnew})[0];if(bm){var bcat=/cerveja|brahma|skol|stella|antarctica|bohemia|heineken|budweiser/.test(norm(bm.name))?'Cervejas':'Refrigerantes',nit=newStockItem(bm.name,bcat,'un');fichas[fKey('m',bm.id)]=[{i:nit.id,q:1,n:nit.name,u:nit.unit}];saveFichas();toast('Criado no estoque: '+nit.name,2600);estoque()}return true}
+  if(d.pnew){var np=newStockItem('Pão de hambúrguer','Insumos','un');paoSel=np.id;estoque();return true}
+  if(d.paosug){var pb=paoBun();if(pb){var pit=itemOf(pb);menu.filter(function(m){return m.cat==='Fast food'&&paoSugg(m)&&!paoRows(m.id,pb).length}).forEach(function(m){var pk=fKey('m',m.id);(fichas[pk]=fichas[pk]||[]).push({i:pb,q:1,n:pit?pit.name:'',u:pit?pit.unit:''})});saveFichas();estoque()}return true}
+  if(d.paoclr){var pc=paoBun();if(pc){menu.filter(function(m){return m.cat==='Fast food'}).forEach(function(m){var pk=fKey('m',m.id);if(!fichas[pk])return;var pr=fichas[pk].filter(function(x){return x.i!==pc});if(pr.length)fichas[pk]=pr;else delete fichas[pk]});saveFichas();estoque()}return true}
   if(d.fo){openF=openF===d.fo?null:d.fo;estoque();return true}
   if(d.fadd){(fichas[d.fadd]=fichas[d.fadd]||[]).push({i:'',q:0,n:'',u:''});saveFichas();estoque();return true}
   if(d.fdel){var fr=fichas[d.fdel];if(fr){fr.splice(+d.fx,1);if(!fr.length)delete fichas[d.fdel]}saveFichas();estoque();return true}
