@@ -247,6 +247,19 @@ button:active:not(:disabled){transform:translateY(1px)}
 .lrow.chk{display:flex;align-items:center;gap:12px;margin:0;font-weight:400;cursor:pointer}
 .lrow.chk input[type=checkbox]{width:24px;height:24px;margin:0;padding:0;flex:none;accent-color:var(--accent)}
 @media (max-width:520px){.lrow{grid-template-columns:1fr}}
+
+/* PIN do caixa */
+.pinbox{max-width:340px;margin:0 auto}
+.pindots{display:flex;justify-content:center;gap:14px;margin:18px 0 6px}
+.pd{width:16px;height:16px;border-radius:50%;border:2px solid var(--accent)}
+.pd.on{background:var(--accent)}
+.pinpad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:300px;margin:18px auto 0}
+.pk{height:68px;border-radius:16px;border:1.5px solid rgba(0,48,112,.4);background:var(--field);font-size:1.8rem;font-weight:700;color:var(--accent);cursor:pointer;font-family:inherit}
+.pk:active{background:var(--accent);color:#fff}
+@media (hover:hover){.pk:hover{background:rgba(0,48,112,.08)}}
+.pinpad.shake{animation:pshake .35s}
+@keyframes pshake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+@media (max-width:380px){.pk{height:60px;font-size:1.6rem}.pinpad{gap:10px}}
 </style>
 </head>
 <body>
@@ -387,7 +400,7 @@ function caixa(){
   : '<div class="note">Você tem acesso somente para consulta. Peça permissão de colaborador para registrar pagamentos.</div>';
   app.innerHTML='<div class="top"><button class="link" data-go="">Voltar</button></div>'+
   '<div class="brand"><div class="logo"><img src="'+LOGO+'" alt="Tri Lanches"></div><div><h1>Controle de caixa</h1><p class="muted">Registre o que o garçom informar.</p></div></div>'+'<div class="cx2"><div class="cxl"><div class="topact"><button class="act" data-contas="fechar">Fechar conta<span class="cnt'+(mesasCount()?'':' zero')+'" id="fbadge">'+mesasCount()+'</span></button><button class="act" id="cbtn" data-contas="open">Contas a receber<span class="cnt'+(pendCount()?'':' zero')+'" id="cbadge">'+pendCount()+'</span></button><button class="act" data-contas="hist" style="grid-column:1/-1">Histórico de mesas e viagens<span class="cnt'+(histCount()?'':' zero')+'" id="hbadge">'+histCount()+'</span></button><button class="act" data-contas="fiado" style="grid-column:1/-1">Fiado de clientes<span class="cnt'+(fiCount()?'':' zero')+'" id="fibadge">'+fiCount()+'</span></button></div></div><div class="cxr"><h2 style="margin-top:24px">Pagamento avulso</h2>'+form+'</div></div>'+
-  '<button class="big alt" data-go="pagamentos">Pagamentos da noite</button>';
+  '<button class="big alt" data-go="pagamentos">Pagamentos da noite</button>'+pinCard();
   var m=document.getElementById('mesa');if(m)m.focus();
 }
 function itemsHtml(){
@@ -1846,6 +1859,150 @@ function render(){
   if(view==='caixa')caixa();else if(view==='pagamentos')pagamentos();else if(view==='historico')historico();else if(view==='analise')analise();else if(view==='noite')noiteView();else if(view==='pedidos')pedidos();else if(view==='mesas')mesas();else if(view==='cardapio')cardapio();else if(view==='estoque')estoque();else if(view==='conta')contaDetalhe();else if(view==='cozinha')cozinha();else if(view==='gastos')gastosView();else home();
   document.querySelectorAll('.fab').forEach(function(f){f.setAttribute('aria-current',(view===f.getAttribute('data-go')||(view==='noite'&&f.getAttribute('data-go')==='historico'))?'page':'false')});
 }
+/* ===== PIN do controle de caixa ===== */
+var PIN_VIEWS=['caixa','pagamentos','historico','analise','noite','gastos'];
+var pinCfg=(function(){try{var c=JSON.parse(localStorage.getItem('caixa:pinc')||'null');return c&&c.hash?c:null}catch(e){return null}})();
+var pinBuf='',pinOkAt=0,pinAct=Date.now(),pinForm='',pinForgotOpen=false,pinFails=0,pinLockUntil=0,pinTimer=null;
+(function(){try{var l=JSON.parse(localStorage.getItem('caixa:pinlock')||'null');if(l){pinFails=l.fails||0;pinLockUntil=l.until||0}}catch(e){}})();
+['pointerdown','keydown','touchstart'].forEach(function(e){document.addEventListener(e,function(){pinAct=Date.now()},true)});
+function sha256(s){
+  var K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  var H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  function R(n,x){return (x>>>n)|(x<<(32-n))}
+  var m=unescape(encodeURIComponent(s)),n=m.length,w=[],i,j,o;
+  for(i=0;i<n;i++)w[i>>2]|=m.charCodeAt(i)<<(24-(i%4)*8);
+  w[n>>2]|=0x80<<(24-(n%4)*8);
+  var L=(((n+8)>>6)+1)*16;
+  for(i=0;i<L;i++)if(w[i]===undefined)w[i]=0;
+  w[L-1]=n*8;
+  for(o=0;o<L;o+=16){
+    var W=w.slice(o,o+16),a=H[0],b=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];
+    for(j=0;j<64;j++){
+      if(j>=16){var s0=R(7,W[j-15])^R(18,W[j-15])^(W[j-15]>>>3),s1=R(17,W[j-2])^R(19,W[j-2])^(W[j-2]>>>10);W[j]=(W[j-16]+s0+W[j-7]+s1)|0}
+      var S1=R(6,e)^R(11,e)^R(25,e),ch=(e&f)^(~e&g),t1=(h+S1+ch+K[j]+W[j])|0,S0=R(2,a)^R(13,a)^R(22,a),mj=(a&b)^(a&c)^(b&c),t2=(S0+mj)|0;
+      h=g;g=f;f=e;e=(d+t1)|0;d=c;c=b;b=a;a=(t1+t2)|0;
+    }
+    H[0]=(H[0]+a)|0;H[1]=(H[1]+b)|0;H[2]=(H[2]+c)|0;H[3]=(H[3]+d)|0;H[4]=(H[4]+e)|0;H[5]=(H[5]+f)|0;H[6]=(H[6]+g)|0;H[7]=(H[7]+h)|0;
+  }
+  return H.map(function(x){return ('00000000'+(x>>>0).toString(16)).slice(-8)}).join('');
+}
+function pinHash(pin,salt){var x=salt+':'+pin;for(var i=0;i<2000;i++)x=sha256(x+salt+pin);return x}
+function pinRand(){var a=new Uint8Array(12);try{crypto.getRandomValues(a)}catch(e){for(var i=0;i<12;i++)a[i]=Math.floor(Math.random()*256)}return Array.prototype.map.call(a,function(b){return ('0'+b.toString(16)).slice(-2)}).join('')}
+function pinCheck(p){return !!(pinCfg&&pinCfg.hash&&pinHash(p,pinCfg.salt)===pinCfg.hash)}
+function pinIdleMs(){return ((pinCfg&&pinCfg.idle)||5)*60000}
+function pinUnlocked(){if(!pinOkAt)return false;if(Date.now()-pinAct>pinIdleMs()){pinOkAt=0;return false}return true}
+function pinLocked(){if(role!=='caixa'||authState!=='ok')return false;if(pinCfg===false)return false;return !pinUnlocked()}
+function pinLockLeft(){return Math.max(0,Math.ceil((pinLockUntil-Date.now())/1000))}
+function pinSaveLock(){try{localStorage.setItem('caixa:pinlock',JSON.stringify({fails:pinFails,until:pinLockUntil}))}catch(e){}}
+function pinApplyCfg(x){pinCfg=(x&&x.hash)?{hash:x.hash,salt:x.salt,len:x.len||4,idle:x.idle||5}:false;try{localStorage.setItem('caixa:pinc',JSON.stringify(pinCfg))}catch(e){}}
+function pinDocOf(c){return {hash:c.hash,salt:c.salt,len:c.len,idle:c.idle,v:1,at:Date.now()}}
+function pinScreen(){
+  if(pinTimer){clearInterval(pinTimer);pinTimer=null}
+  var top='<div class="top"><button class="link" data-go="">Voltar</button></div><div class="center pinbox"><div class="logo"><img src="'+LOGO+'" alt="Tri Lanches"></div><h1>Controle de caixa</h1>';
+  if(pinCfg===null){app.innerHTML=top+'<p class="muted" id="pinwait">Verificando…</p></div>';return}
+  var len=pinCfg.len||4,dots='',i;for(i=0;i<len;i++)dots+='<span class="pd'+(i<pinBuf.length?' on':'')+'"></span>';
+  var left=pinLockLeft();
+  function k(d){return '<button type="button" class="pk" data-pk="'+d+'">'+d+'</button>'}
+  var forgot=pinForgotOpen?'<div class="card" style="margin-top:18px;text-align:left"><label for="pfpass">Senha do usuário do caixa</label><input id="pfpass" type="password" autocomplete="current-password" style="margin-bottom:12px"><button type="button" class="submit" data-pinact="forgotgo" style="margin:0">Remover o PIN</button><div class="msg" id="pfmsg" role="alert"></div></div>':
+    '<button type="button" class="link" data-pinact="forgot" style="margin-top:18px">Esqueci o PIN</button>';
+  app.innerHTML=top+'<p class="muted">Digite o PIN para entrar.</p><div class="pindots" id="pindots" aria-label="PIN digitado">'+dots+'</div><div class="msg'+(left?' err':'')+'" id="pinmsg" role="alert">'+(left?'Muitas tentativas. Aguarde '+left+' s.':'')+'</div>'+
+    '<div class="pinpad" id="pinpad">'+[1,2,3,4,5,6,7,8,9].map(k).join('')+'<span></span>'+k(0)+'<button type="button" class="pk" data-pk="del" aria-label="Apagar">⌫</button></div>'+forgot+'</div>';
+  if(left)pinTimer=setInterval(function(){var l=pinLockLeft(),m=document.getElementById('pinmsg');if(!m){clearInterval(pinTimer);pinTimer=null;return}if(l<=0){clearInterval(pinTimer);pinTimer=null;pinBuf='';render()}else m.textContent='Muitas tentativas. Aguarde '+l+' s.'},500);
+}
+function pinDotsUpdate(){var d=document.getElementById('pindots');if(!d)return;var s=d.children;for(var i=0;i<s.length;i++)s[i].className='pd'+(i<pinBuf.length?' on':'')}
+function pinKey(k){
+  if(!document.getElementById('pinpad')||pinLockLeft()>0||!pinCfg)return;
+  if(k==='del'){pinBuf=pinBuf.slice(0,-1);pinDotsUpdate();return}
+  if(pinBuf.length>=(pinCfg.len||4))return;
+  pinBuf+=k;pinDotsUpdate();
+  if(pinBuf.length===(pinCfg.len||4))setTimeout(pinSubmit,120);
+}
+function pinSubmit(){
+  if(!pinCfg||!document.getElementById('pinpad'))return;
+  var ok=pinCheck(pinBuf);pinBuf='';
+  if(ok){pinOkAt=Date.now();pinAct=Date.now();pinFails=0;pinLockUntil=0;pinSaveLock();render();return}
+  pinFails++;var m=document.getElementById('pinmsg'),pad=document.getElementById('pinpad');
+  if(pinFails%5===0){pinLockUntil=Date.now()+Math.min(600,30*Math.pow(2,pinFails/5-1))*1000}
+  pinSaveLock();
+  try{navigator.vibrate&&navigator.vibrate(140)}catch(e){}
+  if(pad){pad.classList.remove('shake');void pad.offsetWidth;pad.classList.add('shake')}
+  pinDotsUpdate();
+  if(pinLockLeft()>0){pinScreen()}else if(m){m.className='msg err';m.textContent='PIN incorreto.'}
+}
+function pinCard(){
+  if(role!=='caixa')return '';
+  var has=!!(pinCfg&&pinCfg.hash),h='<div class="card" id="pincard" style="margin-top:18px"><b>Segurança · PIN do caixa</b><p class="muted" style="margin:6px 0 10px">'+(has?'O PIN está ativo: ele é pedido ao entrar no controle de caixa e nos relatórios (histórico, análise, gastos e pagamentos).':'Defina um PIN para proteger o controle de caixa e os relatórios.')+'</p>';
+  if(pinForm){
+    var ask=pinForm!=='set',nw=pinForm!=='remove';
+    h+='<div style="text-align:left">'+(ask?'<label for="pcur">PIN atual</label><input id="pcur" type="password" inputmode="numeric" maxlength="6" autocomplete="off" style="margin-bottom:12px">':'')+
+      (nw?'<label for="pnew">'+(has?'Novo PIN':'PIN')+' (4 a 6 números)</label><input id="pnew" type="password" inputmode="numeric" maxlength="6" autocomplete="off" style="margin-bottom:12px"><label for="pnew2">Repita o PIN</label><input id="pnew2" type="password" inputmode="numeric" maxlength="6" autocomplete="off" style="margin-bottom:12px">':'')+
+      '</div><button type="button" class="submit" data-pinact="save" style="margin:0">'+(pinForm==='remove'?'Remover o PIN':'Salvar o PIN')+'</button><button type="button" class="link" data-pinact="cancel" style="margin-top:10px">Cancelar</button><div class="msg" id="pmsg2" role="alert"></div>';
+  }else if(has){
+    h+='<div class="acts" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="chip" data-pinact="change" style="padding:12px 14px">Alterar PIN</button><button type="button" class="chip" data-pinact="remove" style="padding:12px 14px">Remover PIN</button><button type="button" class="chip" data-pinact="lock" style="padding:12px 14px">Bloquear agora</button></div>'+
+      '<label for="pidle" style="margin-top:14px">Bloquear sozinho após</label><select id="pidle">'+[2,5,10,30].map(function(n){return '<option value="'+n+'"'+(((pinCfg.idle||5)===n)?' selected':'')+'>'+n+' minutos sem usar</option>'}).join('')+'</select>';
+  }else{
+    h+='<button type="button" class="chip" data-pinact="set" style="padding:12px 14px">Definir PIN</button>';
+  }
+  return h+'</div>';
+}
+function pinCardRefresh(){var c=document.getElementById('pincard');if(c)c.outerHTML=pinCard()}
+async function pinSave(){
+  var msg=document.getElementById('pmsg2');function fail(s){msg.className='msg err';msg.textContent=s}
+  var mode=pinForm,cur=(document.getElementById('pcur')||{}).value||'',n1=(document.getElementById('pnew')||{}).value||'',n2=(document.getElementById('pnew2')||{}).value||'';
+  if(mode!=='set'&&!pinCheck(cur))return fail('PIN atual incorreto.');
+  if(!db)return fail('Sem conexão com o armazenamento compartilhado.');
+  try{
+    if(mode==='remove'){await db.doc('config/pin').delete();pinApplyCfg(null);pinOkAt=0;toast('PIN removido.',2500)}
+    else{
+      if(!/^\d{4,6}$/.test(n1))return fail('O PIN deve ter de 4 a 6 números.');
+      if(n1!==n2)return fail('Os dois PINs não são iguais.');
+      var salt=pinRand(),doc={hash:pinHash(n1,salt),salt:salt,len:n1.length,idle:(pinCfg&&pinCfg.idle)||5,v:1,at:Date.now()};
+      await db.doc('config/pin').set(doc);pinApplyCfg(doc);pinOkAt=Date.now();pinAct=Date.now();toast(mode==='set'?'PIN definido.':'PIN alterado.',2500)
+    }
+    pinForm='';pinCardRefresh();
+  }catch(e){fail('Não foi possível salvar o PIN. Verifique a conexão e as regras do Firebase (config/pin).')}
+}
+async function pinForgotGo(b){
+  var msg=document.getElementById('pfmsg'),pass=(document.getElementById('pfpass')||{}).value||'';
+  function fail(s){msg.className='msg err';msg.textContent=s;b.disabled=false}
+  if(window.CAIXA_MODE!=='firestore'||typeof firebase==='undefined'||!firebase.auth().currentUser)return fail('Neste modo, limpe os dados do site no navegador para remover o PIN.');
+  if(!pass)return fail('Digite a senha do usuário do caixa.');
+  b.disabled=true;
+  try{
+    var u=firebase.auth().currentUser;await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(u.email,pass));
+    await db.doc('config/pin').delete();pinApplyCfg(null);pinForgotOpen=false;pinBuf='';toast('PIN removido. Defina um novo no controle de caixa.',3500);render();
+  }catch(e){var c=(e&&e.code)||'';fail(c==='auth/too-many-requests'?'Muitas tentativas. Aguarde alguns minutos.':c==='auth/network-request-failed'?'Sem conexão com a internet.':'Senha incorreta.')}
+}
+function pinTick(){
+  if(role!=='caixa'||authState!=='ok'||!(pinCfg&&pinCfg.hash)||!pinOkAt)return;
+  if(!pinUnlocked()&&PIN_VIEWS.indexOf(view)>-1){try{closeContas()}catch(e){}pinBuf='';render()}
+}
+setInterval(pinTick,10000);
+document.addEventListener('click',function(ev){
+  var b=ev.target.closest&&ev.target.closest('[data-pk],[data-pinact]');if(!b)return;
+  if(b.dataset.pk!==undefined){pinKey(b.dataset.pk);return}
+  var a=b.dataset.pinact;
+  if(a==='set'||a==='change'||a==='remove'){pinForm=a;pinCardRefresh();return}
+  if(a==='cancel'){pinForm='';pinCardRefresh();return}
+  if(a==='save'){pinSave();return}
+  if(a==='lock'){pinOkAt=0;pinBuf='';render();return}
+  if(a==='forgot'){pinForgotOpen=true;pinScreen();return}
+  if(a==='forgotgo'){pinForgotGo(b);return}
+});
+document.addEventListener('change',function(ev){
+  if(ev.target.id!=='pidle'||!pinCfg||!pinCfg.hash)return;
+  var n=+ev.target.value,old=pinCfg.idle;pinCfg.idle=n;
+  Promise.resolve(db.doc('config/pin').set(pinDocOf(pinCfg))).then(function(){pinApplyCfg(pinDocOf(pinCfg));toast('Bloqueio automático: '+n+' minutos.',2200)}).catch(function(){pinCfg.idle=old;ev.target.value=old||5;toast('Não foi possível salvar. Verifique as regras do Firebase.',3500)});
+});
+document.addEventListener('keydown',function(ev){
+  if(!document.getElementById('pinpad')||ev.ctrlKey||ev.metaKey||ev.altKey)return;
+  var t=ev.target&&ev.target.tagName;if(t==='INPUT'||t==='SELECT'||t==='TEXTAREA')return;
+  if(/^[0-9]$/.test(ev.key)){ev.preventDefault();pinKey(ev.key)}
+  else if(ev.key==='Backspace'){ev.preventDefault();pinKey('del')}
+  else if(ev.key==='Enter'){ev.preventDefault();if(pinBuf.length)pinSubmit()}
+});
+window.addEventListener('hashchange',function(){pinForm='';pinBuf='';pinForgotOpen=false});
+['caixa','pagamentos','historico','analise','noiteView','gastosView'].forEach(function(n){var f=window[n];if(typeof f!=='function')return;window[n]=function(){if(pinLocked()){pinScreen();return}return f.apply(this,arguments)}});
 function route(){render();window.scrollTo(0,0)}
 
 
@@ -1887,6 +2044,7 @@ function startApp(){
   if(c){
     db.collection('estoque').onSnapshot(function(sn){stock={};sn.docs.forEach(function(d){stock[d.id]=Number(d.data().qty)||0});if(view==='estoque'&&stTab==='estoque')estoque()},function(){});
     db.doc('config/estoque').onSnapshot(function(s){if(s.exists){var x=s.data();if(x&&x.json&&x.json!==JSON.stringify(items)){try{items=JSON.parse(x.json)}catch(e){return}if(view==='estoque'&&stTab!=='itens')estoque()}}},function(){});
+    db.doc('config/pin').onSnapshot(function(sn){pinApplyCfg(sn.exists?sn.data():null);if(PIN_VIEWS.indexOf(view)>-1&&(document.getElementById('pinpad')||document.getElementById('pinwait')||pinLocked()))render()},function(){if(pinCfg===null)pinCfg=false;if(PIN_VIEWS.indexOf(view)>-1&&document.getElementById('pinwait'))render()});
     db.collection('fiado').onSnapshot(function(sn){fiados=sn.docs.map(function(d){var x=d.data();return {id:d.id,tipo:x.tipo==='c'?'c':'d',cliente:String(x.cliente||''),ckey:x.ckey||fiKey(x.cliente||''),value:Number(x.value)||0,conta:x.conta||'',table:x.table||'',itens:x.itens||'',method:x.method||'',night:x.night||'',ts:x.ts||0,by:x.by||''}}).sort(function(a,b){return a.ts-b.ts});refreshContas()},function(){});
     db.collection('noites').onSnapshot(function(sn){noites=sn.docs.map(function(d){var x=d.data();x.id=d.id;return x}).sort(function(a,b){return b.since-a.since});loadedN=true;if(view==='historico'||view==='analise'||view==='noite')render()},function(){loadedN=true});
   }
