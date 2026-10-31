@@ -871,7 +871,7 @@ document.addEventListener('input',function(ev){
   else if(d.obs){var c=cart.filter(function(x){return x.u===d.obs})[0];if(c)c.obs=t.value}
 });
 document.addEventListener('change',function(ev){
-  var t=ev.target,d=t.dataset||{};if(t.id==='pmode'||t.id==='pcols'||t.id==='pauto'||t.id==='pcut'){var pc=printCfg();if(t.id==='pmode'){pc.mode=t.value;if(pc.mode!=='off')pc.since=Date.now()}else if(t.id==='pcols')pc.cols=Number(t.value);else if(t.id==='pcut')pc.cut=t.checked;else{pc.auto=t.checked;if(pc.auto)pc.since=Date.now()}savePrintCfg(pc);cozinha();return}if(t.id==='gfil'){gFilter=t.value;gastosView();return}if(t.id==='gfoto'){gPickFoto(t);return}if(d.bv!==undefined){setLink(d.bv,t.value);return}
+  var t=ev.target,d=t.dataset||{};if(t.id==='pmode'||t.id==='pcols'||t.id==='pauto'||t.id==='pcut'||t.id==='pfs'){var pc=printCfg();if(t.id==='pmode'){pc.mode=t.value;if(pc.mode!=='off')pc.since=Date.now()}else if(t.id==='pcols')pc.cols=Number(t.value);else if(t.id==='pcut')pc.cut=t.checked;else if(t.id==='pfs')pc.fs=t.value;else{pc.auto=t.checked;if(pc.auto)pc.since=Date.now()}savePrintCfg(pc);cozinha();return}if(t.id==='gfil'){gFilter=t.value;gastosView();return}if(t.id==='gfoto'){gPickFoto(t);return}if(d.bv!==undefined){setLink(d.bv,t.value);return}
   if(d.paosel){paoSel=t.value;estoque();return}
   if(d.pao!==undefined){togglePao(d.pao,t.checked);return}
   if(d.fk){var frs=fichas[d.fk],frw=frs&&frs[+d.fx];if(!frw)return;if(d.ff==='i'){var fit=itemOf(t.value);frw.i=t.value;frw.n=fit?fit.name:'';frw.u=fit?fit.unit:''}else{var fq=parseQty(t.value);if(fq===null){t.value=fmtQ(frw.q);return}frw.q=fq}saveFichas();estoque();return}
@@ -1668,7 +1668,7 @@ function handleGastos(b){
   if(d.gcrm){if(arm(b))return true;saveGCats(gCats.filter(function(c){return c!==d.gcrm})).then(function(){gastosView()}).catch(function(){toast('Não foi possível remover',2000)});return true}
   return false;
 }
-var PDEF={mode:'off',cols:48,auto:true,since:0,cut:true},pOpen=false,printBusy=false,printedLocal={};
+var PDEF={mode:'off',cols:48,auto:true,since:0,cut:true,fs:'m'},pOpen=false,printBusy=false,printedLocal={};
 function printCfg(){try{return Object.assign({},PDEF,JSON.parse(localStorage.getItem('caixa:print')||'{}'))}catch(e){return Object.assign({},PDEF)}}
 function savePrintCfg(c){try{localStorage.setItem('caixa:print',JSON.stringify(c))}catch(e){}}
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
@@ -1686,6 +1686,12 @@ function ticketModel(o){
     items:o.items.filter(function(i){return !i.canc}).map(function(i){return {q:i.l.qty,n:i.l.name,obs:i.l.obs||''}})};
 }
 /* ===== Impressão: papel de 58 mm (32 colunas) e de 80 mm (48 ou 42 colunas) ===== */
+var PX_K={g:{t:0x11,m:0x11,q:0x11,n:0x01,o:0x01},m:{t:0x01,m:0x11,q:0x01,n:0x01,o:0x00},p:{t:0x00,m:0x01,q:0x01,n:0x00,o:0x00}};
+var PX_B={g:{t:0x11,m:0x11,tot:0x01},m:{t:0x01,m:0x01,tot:0x01},p:{t:0x00,m:0x00,tot:0x00}};
+var HT_K={g:[15,26,46,22,32,17],m:[13,22,38,18,26,14],p:[12,19,32,15,21,12]};
+var HT_B={g:[14,26,42,22,12],m:[12.5,22,34,19,11],p:[11.5,19,28,17,10]};
+function pxFs(){var f=printCfg().fs;return (f==='g'||f==='p')?f:'m'}
+function pxWm(n){return (n>>4)+1}
 function pxPadR(s,n){s=pxText(s);return s+new Array(Math.max(0,n-s.length)+1).join(' ')}
 function pxPadL(s,n){s=pxText(s);return new Array(Math.max(0,n-s.length)+1).join(' ')+s}
 function pxN(v){return Number(v).toFixed(2).replace('.',',')}
@@ -1704,20 +1710,21 @@ function ticketBytes(o,cols){
   var m=ticketModel(o),wide=cols>=42,p=pxB(cols),ln=p.ln,raw=p.raw;
   raw(0x1B,0x40);
   if(o.key==='teste'){p.align(0);ln(pxRuler(cols));ln('|'+new Array(cols-1).join('-')+'|');ln('Largura: '+cols+' colunas');ln(p.dash)}
-  p.align(1);p.bold(1);if(wide)p.size(0x11);ln('COZINHA');p.size(0);p.bold(0);ln(p.bar);
-  p.size(0x11);ln(m.who);p.size(0);
+  var S=PX_K[pxFs()];
+  p.align(1);p.bold(1);if(wide)p.size(S.t);ln('COZINHA');p.size(0);p.bold(0);ln(p.bar);
+  p.size(wide?S.m:0x11);ln(m.who);p.size(0);
   if(m.cliente){p.bold(1);pxWrap(m.cliente,cols).forEach(function(s){ln(s)});p.bold(0)}
   if(wide){p.align(0);p.lr('Pedido '+m.hora,m.by?'Atend.: '+m.by:'');ln(p.dash)}
   else{ln('Pedido '+m.hora);p.align(0);ln(p.dash)}
   m.items.forEach(function(it){
     if(wide){
-      var qs=pxText(it.q+'x'),qw=qs.length*2,nl=pxWrap(it.n.toUpperCase(),Math.max(8,cols-qw-1));
+      var qs=pxText(it.q+'x'),qw=qs.length*pxWm(S.q),nl=pxWrap(it.n.toUpperCase(),Math.max(8,cols-qw-1));
       nl.forEach(function(s,i){
         p.bold(1);
-        if(i===0){p.size(0x11);p.txt(qs);p.size(0x01);p.txt(' '+s)}else{p.size(0x01);p.txt(new Array(qw+2).join(' ')+s)}
+        if(i===0){p.size(S.q);p.txt(qs);p.size(S.n);p.txt(' '+s)}else{p.size(S.n);p.txt(new Array(qw+2).join(' ')+s)}
         raw(10);p.size(0);p.bold(0);
       });
-      if(it.obs){p.bold(1);p.size(0x01);pxWrap('* '+it.obs,cols-3).forEach(function(l){ln('   '+l)});p.size(0);p.bold(0)}
+      if(it.obs){p.bold(1);p.size(S.o);pxWrap('* '+it.obs,cols-3).forEach(function(l){ln('   '+l)});p.size(0);p.bold(0)}
     }else{
       raw(0x1B,0x45,1);raw(0x1D,0x21,0x01);pxWrap(it.q+'x '+it.n.toUpperCase(),cols).forEach(function(s){ln(s)});raw(0x1D,0x21,0x00);raw(0x1B,0x45,0);
       if(it.obs){raw(0x1B,0x45,1);pxWrap('* '+it.obs,cols-2).forEach(function(l){ln('  '+l)});raw(0x1B,0x45,0)}
@@ -1736,7 +1743,7 @@ function ticketHtml(o,cols){
     m.items.map(function(it){return '<div class="it">'+it.q+'x '+esc(it.n.toUpperCase())+'</div>'+(it.obs?'<div class="ob">* '+esc(it.obs)+'</div>':'')}).join('')+
     '<div class="hr"></div>'+(m.by?'<div>Atendente: '+esc(m.by)+'</div>':'')+'</body></html>';
   }
-  var css='@page{size:80mm auto;margin:0}*{box-sizing:border-box}body{margin:0 auto;padding:3mm 0 8mm;width:72mm;font:bold 15px/1.3 "Courier New",monospace;color:#000}.c{text-align:center}.t{font-size:26px;letter-spacing:3px}.big{font-size:46px;line-height:1.05;margin:6px 0}.hr{border-top:2px dashed #000;margin:7px 0}.row{display:flex;justify-content:space-between;gap:8px}.it{display:flex;gap:10px;align-items:baseline;margin:8px 0;font-size:22px}.q{font-size:32px;min-width:50px}.nm{flex:1;overflow-wrap:anywhere}.ob{font-size:17px;padding-left:60px;margin:-4px 0 6px}.rl{border:1px solid #000;text-align:center;font-size:12px;font-weight:normal;padding:2px;margin-bottom:6px}';
+  var F=HT_K[pxFs()],qm=Math.round(F[4]*1.56),css='@page{size:80mm auto;margin:0}*{box-sizing:border-box}body{margin:0 auto;padding:3mm 0 8mm;width:72mm;font:bold '+F[0]+'px/1.3 "Courier New",monospace;color:#000}.c{text-align:center}.t{font-size:'+F[1]+'px;letter-spacing:3px}.big{font-size:'+F[2]+'px;line-height:1.05;margin:6px 0}.hr{border-top:2px dashed #000;margin:7px 0}.row{display:flex;justify-content:space-between;gap:8px}.it{display:flex;gap:10px;align-items:baseline;margin:8px 0;font-size:'+F[3]+'px}.q{font-size:'+F[4]+'px;min-width:'+qm+'px}.nm{flex:1;overflow-wrap:anywhere}.ob{font-size:'+F[5]+'px;padding-left:'+(qm+10)+'px;margin:-4px 0 6px}.rl{border:1px solid #000;text-align:center;font-size:12px;font-weight:normal;padding:2px;margin-bottom:6px}';
   return '<!doctype html><html><head><meta charset="utf-8"><title>Cozinha</title><style>'+css+'</style></head><body>'+
     (o.key==='teste'?'<div class="rl">|&lt;— largura útil (72 mm) —&gt;|</div>':'')+
     '<div class="c t">COZINHA</div><div class="hr"></div><div class="c big">'+esc(m.who)+'</div>'+(m.cliente?'<div class="c">'+esc(m.cliente)+'</div>':'')+
@@ -1758,8 +1765,9 @@ function billBytes(m,cols){
     ln(p.bar);p.align(1);ln('Sem valor fiscal');ln('Obrigado pela preferencia!');p.end(false);
     return p.B;
   }
-  p.bold(1);p.size(0x11);ln('TRI LANCHES');p.size(0);p.bold(0);ln(m.title);ln(p.bar);
-  p.size(0x11);ln(m.who);p.size(0);
+  var BS=PX_B[pxFs()];
+  p.bold(1);p.size(BS.t);ln('TRI LANCHES');p.size(0);p.bold(0);ln(m.title);ln(p.bar);
+  p.bold(BS.m===0?1:0);p.size(BS.m);ln(m.who);p.size(0);p.bold(0);
   if(m.cliente){p.bold(1);pxWrap(m.cliente,cols).forEach(function(s){ln(s)});p.bold(0)}
   ln(m.when);p.align(0);ln(p.dash);
   var wq=4,wu=7,wt=8,wd=cols-wq-wu-wt-3;
@@ -1769,8 +1777,8 @@ function billBytes(m,cols){
       ln((i?pxPadR('',wq):pxPadR(it.q+'x',wq))+' '+pxPadR(s,wd)+(i===0?' '+pxPadL(pxN(it.u!=null?it.u:it.t/it.q),wu)+' '+pxPadL(pxN(it.t),wt):''));
     });
   });
-  ln(p.dash);p.bold(1);p.size(0x01);lr('TOTAL',brl(m.total));p.size(0);p.bold(0);
-  if(m.pays.length||m.fiado.length){ln(p.dash);m.pays.forEach(function(x){lr('Pago '+x.m,brl(x.v))});m.fiado.forEach(function(f){lr('Fiado '+f.c,brl(f.v))});if(m.rest>0.004){p.bold(1);p.size(0x01);lr('RESTANTE',brl(m.rest));p.size(0);p.bold(0)}}
+  ln(p.dash);p.bold(1);p.size(BS.tot);lr('TOTAL',brl(m.total));p.size(0);p.bold(0);
+  if(m.pays.length||m.fiado.length){ln(p.dash);m.pays.forEach(function(x){lr('Pago '+x.m,brl(x.v))});m.fiado.forEach(function(f){lr('Fiado '+f.c,brl(f.v))});if(m.rest>0.004){p.bold(1);p.size(BS.tot);lr('RESTANTE',brl(m.rest));p.size(0);p.bold(0)}}
   ln(p.bar);p.align(1);ln('Sem valor fiscal');ln('Obrigado pela preferencia!');p.end(true);
   return p.B;
 }
@@ -1786,7 +1794,7 @@ function billHtml(m,cols){
     '<div class="hr"></div><div class="c s">Sem valor fiscal</div><div class="c">Obrigado pela preferência!</div></body></html>';
   }
   var R=function(l,rt,cls){return '<div class="r'+(cls?' '+cls:'')+'"><span>'+esc(l)+'</span><span>'+esc(rt)+'</span></div>'};
-  var css='@page{size:80mm auto;margin:0}*{box-sizing:border-box}body{margin:0 auto;padding:3mm 0 8mm;width:72mm;font:bold 14px/1.3 "Courier New",monospace;color:#000}.c{text-align:center}.t{font-size:26px;letter-spacing:2px}.big{font-size:42px;line-height:1.05;margin:6px 0}.hr{border-top:2px dashed #000;margin:7px 0}.li{margin:7px 0}.li .nm{overflow-wrap:anywhere}.li .r{margin:1px 0 0}.r{display:flex;justify-content:space-between;gap:10px;margin:3px 0}.r span:last-child{white-space:nowrap}.tot{font-size:22px}.s{font-weight:normal;font-size:12px}';
+  var G=HT_B[pxFs()],css='@page{size:80mm auto;margin:0}*{box-sizing:border-box}body{margin:0 auto;padding:3mm 0 8mm;width:72mm;font:bold '+G[0]+'px/1.3 "Courier New",monospace;color:#000}.c{text-align:center}.t{font-size:'+G[1]+'px;letter-spacing:2px}.big{font-size:'+G[2]+'px;line-height:1.05;margin:6px 0}.hr{border-top:2px dashed #000;margin:7px 0}.li{margin:7px 0}.li .nm{overflow-wrap:anywhere}.li .r{margin:1px 0 0}.r{display:flex;justify-content:space-between;gap:10px;margin:3px 0}.r span:last-child{white-space:nowrap}.tot{font-size:'+G[3]+'px}.s{font-weight:normal;font-size:'+G[4]+'px}';
   return '<!doctype html><html><head><meta charset="utf-8"><title>Conta</title><style>'+css+'</style></head><body>'+
     '<div class="c t">TRI LANCHES</div><div class="c">'+esc(m.title)+'</div><div class="hr"></div><div class="c big">'+esc(m.who)+'</div>'+(m.cliente?'<div class="c"><b>'+esc(m.cliente)+'</b></div>':'')+'<div class="c">'+esc(m.when)+'</div><div class="hr"></div>'+
     m.items.map(function(it){return '<div class="li"><div class="nm">'+esc(it.n)+'</div>'+R(it.q+' x '+pxN(it.u!=null?it.u:it.t/it.q),pxN(it.t))+'</div>'}).join('')+'<div class="hr"></div>'+R('TOTAL',brl(m.total),'tot')+
@@ -1822,7 +1830,7 @@ function printCard(){
   var c=printCfg(),nm={off:'Desligada',web:'Pelo navegador (USB no computador)',rawbt:'App RawBT (Android)'}[c.mode];
   var body=pOpen?'<div style="margin-top:12px"><label for="pmode">Como imprimir</label><select id="pmode" style="margin:0 0 10px"><option value="off"'+(c.mode==='off'?' selected':'')+'>Desligada</option><option value="web"'+(c.mode==='web'?' selected':'')+'>Pelo navegador (impressora instalada no computador, USB)</option><option value="rawbt"'+(c.mode==='rawbt'?' selected':'')+'>Pelo app RawBT (celular ou tablet Android, Bluetooth ou USB)</option></select>'+
     '<label for="pcols">Papel</label><select id="pcols" style="margin:0 0 10px"><option value="32"'+(c.cols===32?' selected':'')+'>58 mm (32 colunas)</option><option value="48"'+(c.cols===48?' selected':'')+'>80 mm (48 colunas) · recomendado</option><option value="42"'+(c.cols===42?' selected':'')+'>80 mm, modelos de 42 colunas</option></select>'+
-    (c.cols>=42?'<label class="chk"><input type="checkbox" id="pcut"'+(c.cut!==false?' checked':'')+'> Cortar o papel ao final de cada impressão</label>':'')+
+    (c.cols>=42?'<label for="pfs">Tamanho das letras (80 mm)</label><select id="pfs"><option value="g"'+(pxFs()==='g'?' selected':'')+'>Grande</option><option value="m"'+(pxFs()==='m'?' selected':'')+'>Médio · padrão</option><option value="p"'+(pxFs()==='p'?' selected':'')+'>Pequeno</option></select><label class="chk"><input type="checkbox" id="pcut"'+(c.cut!==false?' checked':'')+'> Cortar o papel ao final de cada impressão</label>':'')+
     (c.mode==='web'?'<label class="chk"><input type="checkbox" id="pauto"'+(c.auto?' checked':'')+'> Imprimir sozinho os pedidos novos</label>':'')+
     '<button class="submit" data-ptest="1" style="margin-top:12px">Teste de impressão (cozinha)</button><button class="submit" data-ptestb="1" style="margin-top:10px">Teste da conta do cliente</button>'+
     '<p class="muted" style="margin-top:10px;font-size:.9rem">'+(c.mode==='rawbt'?'Instale o app RawBT, pareie a impressora Bluetooth dentro dele e escolha o papel igual ao da sua impressora (80 mm). Quando chegar pedido, toque em <b>Imprimir agora</b>.':c.mode==='web'?'Instale o driver da impressora no computador. Para imprimir sem abrir a janela a cada pedido, abra o Chrome com o atalho que inclui <b>--kiosk-printing</b> e deixe a impressora como padrão. Nas preferências da impressora, escolha o papel de 80 mm (por exemplo, “Receipt 80mm” ou “Roll Paper 80 x 297 mm”) para o ticket sair na largura certa.':'Escolha como este aparelho vai imprimir. A configuração vale só para este aparelho.')+'</p></div>':'';
