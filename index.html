@@ -261,6 +261,20 @@ button:active:not(:disabled){transform:translateY(1px)}
 .pinpad.shake{animation:pshake .35s}
 @keyframes pshake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
 @media (max-width:380px){.pk{height:60px;font-size:1.6rem}.pinpad{gap:10px}}
+
+/* bebidas em quadrados */
+#pitems.bevcard{padding:12px}
+.bevgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.bev{position:relative;aspect-ratio:1/1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:4px;padding:8px 5px 7px;border:2px solid #33639F;border-radius:16px;background:var(--field);color:var(--accent);box-shadow:0 3px 8px rgba(0,48,112,.16);cursor:pointer;font-family:inherit}
+.bev .bi{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.bev .bi img{max-width:100%;max-height:100%;object-fit:contain}
+.bev .bn{width:100%;font-size:.78rem;font-weight:800;line-height:1.12;text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.24em}
+.bev .bq{position:absolute;top:5px;right:5px;min-width:24px;height:24px;padding:0 6px;border-radius:99px;background:var(--accent);color:#fff;font-size:.85rem;font-weight:800;display:none;align-items:center;justify-content:center}
+.bev.on .bq{display:flex}
+.bev:active{transform:scale(.97)}
+@media (hover:hover){.bev:hover{border-color:var(--accent);background:#fff}}
+@media (min-width:700px){.bevgrid{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}}
+@media (max-width:380px){.bevgrid{gap:8px}.bev .bn{font-size:.72rem}}
 </style>
 </head>
 <body>
@@ -680,6 +694,7 @@ var pedBusca='',seenCV=null;
 function itemRow(m,showCat){return '<button class="rb" data-add="'+esc(m.id)+'"><span><b>'+(m.code?esc(m.code)+' · ':'')+esc(m.name)+'</b>'+(m.desc?'<small>'+esc(m.desc)+'</small>':'')+(showCat?'<small>'+esc(m.cat)+'</small>':'')+'</span><b>'+brl(m.price)+'</b></button>'}
 function updItems(){
   var pc=document.getElementById('pcats'),pi=document.getElementById('pitems');if(!pc||!pi)return;
+  pi.classList.remove('bevcard');
   var terms=norm(pedBusca).split(/\s+/).filter(Boolean);
   if(terms.length){
     pc.innerHTML='';pc.style.display='none';
@@ -692,6 +707,11 @@ function updItems(){
   pc.style.display='';
   pc.innerHTML=CATL.map(function(c){return '<button type="button" class="chip" data-pc="'+c+'" aria-pressed="'+(c===pedCat)+'">'+c+'</button>'}).join('');
   var it=menu.filter(function(m){return m.cat===pedCat&&m.price!=null}),np=menu.filter(function(m){return m.cat===pedCat&&m.price==null}).length;
+  if(pedCat==='Bebidas'){
+    pi.classList.add('bevcard');
+    pi.innerHTML=(it.length?'<div class="bevgrid">'+it.map(bevTile).join('')+'</div>':'<p class="muted">Nenhum item com preço nesta categoria.</p>')+(np?'<p class="muted" style="margin-top:10px">'+np+' item(ns) sem preço não aparece(m) aqui. Defina o preço em Cardápio.</p>':'');
+    bevBadges();return;
+  }
   pi.innerHTML=(it.length?it.map(function(m){return itemRow(m,false)}).join(''):'<p class="muted">Nenhum item com preço nesta categoria.</p>')+
   (np?'<p class="muted" style="margin-top:10px">'+np+' item(ns) sem preço não aparece(m) aqui. Defina o preço em Cardápio.</p>':'');
 }
@@ -898,6 +918,7 @@ IMGN.frango='data:image/webp;base64,UklGRpIRAABXRUJQVlA4WAoAAAAQAAAAXwAAfwAAQUxQ
 IMG.s9=IMGN.brahma;IMG.s10=IMGN.skol;IMG.s11=IMGN.stella;IMG.s12=IMGN.stellagold;IMG.s13=IMGN.bacon;IMG.s14=IMGN.calabresa;IMG.s15=IMGN.salsicha;IMG.s16=IMGN.tomate;
 function imgByName(name){var t=String(name).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim().split(' '),h=function(w){return t.indexOf(w)>-1};
   if(h('pepsi'))return IMGN.pepsi;
+  if(h('coca')&&h('cola')){if(h('zero'))return IMG.s6;if(h('retornavel')||h('ks')||h('1l')||h('litro'))return IMG.s1;if(h('lata'))return IMG.s3}
   if(h('guarana')&&!h('1l')&&!h('2l')&&!h('litro'))return IMGN.guarana;
   if(h('stella'))return h('gold')?IMGN.stellagold:IMGN.stella;
   if(h('brahma'))return IMGN.brahma;
@@ -2089,6 +2110,22 @@ function configView(){
   if(role==='caixa')h+='<section class="sec"><h2>Segurança</h2><p class="muted" style="margin:0 0 10px">O PIN vale para todos os aparelhos do caixa.</p>'+pinCard()+'</section>';
   app.innerHTML=h;
 }
+/* ===== Bebidas em quadrados com imagem ===== */
+function bevImg(m){
+  var r=fRows(fKey('m',m.id)),row=(r.length===1&&r[0].q===1&&r[0].i)?r[0]:null,im='';
+  if(row)im=itemImg(itemOf(row.i)||{id:row.i,name:row.n||''})||'';
+  if(!im){var st=bestStock(m.name);if(st)im=itemImg(st)||''}
+  return im||imgByName(m.name)||'';
+}
+function bevTile(m){
+  var im=bevImg(m),pic=im?'<img src="'+im+'" alt="">':'<svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".45" aria-hidden="true"><path d="M6 3h12l-1.2 15.2A2 2 0 0 1 14.8 20H9.2a2 2 0 0 1-2-1.8L6 3z"/><path d="M6.5 9h11"/></svg>';
+  return '<button type="button" class="bev" data-add="'+esc(m.id)+'" aria-label="Adicionar '+esc(m.name)+'" title="'+esc(brl(m.price))+'"><span class="bq" aria-hidden="true"></span><span class="bi">'+pic+'</span><span class="bn">'+esc(m.name)+'</span></button>';
+}
+function bevBadges(){
+  var q={};cart.forEach(function(c){q[c.id]=(q[c.id]||0)+c.qty});
+  document.querySelectorAll('.bev[data-add]').forEach(function(b){var n=q[b.dataset.add]||0,s=b.querySelector('.bq');if(s)s.textContent=n;b.classList.toggle('on',n>0)});
+}
+var _updCartBase=updCart;updCart=function(){_updCartBase.apply(this,arguments);bevBadges()};
 function route(){render();window.scrollTo(0,0)}
 
 
