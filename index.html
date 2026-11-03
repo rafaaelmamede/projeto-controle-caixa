@@ -279,14 +279,15 @@ button:active:not(:disabled){transform:translateY(1px)}
 @media (min-width:700px){.bevgrid{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}}
 @media (max-width:380px){.bevgrid{gap:8px}.bev .bn{font-size:.72rem}}
 /* fast food em quadrados com foto */
-.bevgrid.ffgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
-.bev.ff{aspect-ratio:auto;justify-content:flex-start;gap:5px;padding:6px 6px 8px}
-.bev.ff .bi{flex:none;width:100%;aspect-ratio:1/1;border-radius:11px;background:#fff}
+.bevgrid.ffgrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.bev.ff{aspect-ratio:auto;justify-content:flex-start;gap:4px;padding:5px 5px 7px}
+.bev.ff .bi{flex:none;width:100%;aspect-ratio:1/1;border-radius:9px;background:#fff}
 .bev.ff .bi img{width:100%;height:100%;object-fit:cover}
-.bev.ff .bn{font-size:.82rem}
-.bev.ff .bp{font-size:.85rem;font-weight:800;opacity:.85}
-@media (min-width:700px){.bevgrid.ffgrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
-@media (max-width:380px){.bev.ff .bn{font-size:.76rem}}
+.bev.ff .bi svg{width:30px;height:30px}
+.bev.ff .bn{font-size:.7rem;line-height:1.15}
+.bev.ff .bp{font-size:.76rem;font-weight:800;opacity:.85}
+@media (min-width:700px){.bevgrid.ffgrid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}}
+@media (max-width:380px){.bevgrid.ffgrid{gap:6px}.bev.ff .bn{font-size:.66rem}}
 </style>
 </head>
 <body>
